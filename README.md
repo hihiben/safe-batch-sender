@@ -16,9 +16,12 @@ Google Sheet.
 
    where `appUrl` is `https://hihiben.github.io/safe-batch-sender/#<payload>` and
    `<payload>` is base64url-encoded JSON in the URL **fragment** (not a query
-   param — fragments never reach a server log, and Safe's manifest loader keeps
-   the full fragment on the iframe's `src` even though it strips it before
-   fetching `manifest.json`).
+   param on *this* URL — GitHub Pages never sees it, and Safe's manifest loader
+   keeps the full fragment on the iframe's `src` even though it strips it
+   before fetching `manifest.json`). This does **not** mean the payload never
+   reaches any server: percent-encoding turns `#` into `%23` in the complete
+   `app.safe.global` deep link above, so the whole thing ends up as query-string
+   data on that request instead — see "Security notes" below.
 
 2. Opening the link loads this app inside the Safe iframe. It reads the fragment,
    validates it against the Safe you actually have open, and shows a preview.
@@ -53,9 +56,10 @@ no live Safe to validate against outside the iframe.
   will be introduced as a version bump (`v: 2`) once the preview and the
   proposed transaction both understand it, not by quietly accepting the syntax
   ahead of time.
-- `txs` may contain at most `MAX_TXS` (100) entries — well above the observed
-  41-row max, low enough that a malformed or malicious link can't force
-  thousands of DOM rows into the preview.
+- `txs` may contain at most `MAX_TXS` (50) entries — above the observed
+  41-row max, but with real headroom below `app.safe.global`'s actual link
+  length limit (see "Link length" below) rather than an arbitrary round
+  number.
 - `amountWei` is a decimal string (positive integer, no sign/decimal/exponent).
 - Addresses may be given all-lowercase, all-uppercase, or correctly
   EIP-55-checksummed. Mixed case that fails the checksum is rejected outright.
@@ -90,11 +94,35 @@ outside Safe.
 
 ## Link length
 
-Measured for the observed max batch size (41 rows, Base chain, real
-`encodePayload` output): **3,853 characters** for the complete
-`app.safe.global` deep link. This is far under any practical URL length limit
-for both browsers and the Safe UI; `src/__tests__/link-budget.test.ts` asserts
-it stays under 8,000 as a regression guard.
+**There is a real, hard limit, and it isn't the browser.** `app.safe.global` is
+served through CloudFront/S3, which rejects any request whose total header
+section (the request line — i.e. the URL — plus all headers) exceeds 8192
+bytes, returning `400 RequestHeaderSectionTooLarge`. Measured empirically
+against the live endpoint with synthetic addresses (Base chain, real
+`encodePayload` output):
+
+| rows | link length | result |
+| ---- | ----------- | ------ |
+| 41 (observed real-world max) | 3,853 chars | 200 |
+| 50 (`MAX_TXS`) | 4,633 chars | 200 |
+| 70 | 6,366 chars | ~edge |
+| 75 | 6,799 chars | 400 |
+
+Failure starts around 70 rows. Browser cookies count against the same
+8192-byte budget, so a logged-in user's real safe margin is smaller than what
+these curl-based measurements show — this hasn't been measured in an actual
+browser session. `MAX_TXS` is capped at 50 for headroom below the observed
+failure point, not just below the 41-row real-world max; `src/payload.ts`
+rejects anything over that before a link can even be built.
+`src/__tests__/link-budget.test.ts` asserts the complete deep link stays under
+5,000 chars at both 41 and `MAX_TXS` rows, as a regression guard against this
+budget silently eroding (e.g. a longer `label`, a chain with a longer
+`shortName`, an app host with a longer path).
+
+A link that does exceed the limit fails as an opaque S3/CloudFront XML error
+page — not anything this app controls or can show a useful message for —
+which is the reason for capping well below the observed edge rather than
+riding right up to it.
 
 ## First-run warning per chain
 
@@ -184,10 +212,18 @@ sheet links.
   `innerHTML`); CI greps `src/` for `innerHTML`/`outerHTML`/
   `insertAdjacentHTML`/`document.write`/`eval(`/`new Function(` as a
   regression gate.
-- Recipient addresses and amounts appear in the URL. They're placed after `#`
-  (never sent to any server, including GitHub Pages itself), but do persist in
-  local browser history. For gas-refill amounts this is treated as low
-  sensitivity; re-evaluate before reusing this app for anything more
+- Recipient addresses and amounts appear in the URL, and reach more places
+  than "just this app". The fragment in `https://hihiben.github.io/…/#payload`
+  is never sent to any server — that part is true, fragments aren't part of an
+  HTTP request. But **the deep link an operator actually clicks is not that
+  URL**: it's `https://app.safe.global/apps/open?safe=…&appUrl=<percent-encoded
+  appUrl>`, and percent-encoding turns `#` into `%23` so it survives as part of
+  a query string value. That means the whole payload **is** query-string data
+  on a request to `app.safe.global`, which is served through CloudFront/S3 —
+  it lands in their edge logs, and N1's 400 responses are direct proof the
+  server receives and measures it before rejecting it. It also persists in
+  local browser history on every hop. For gas-refill amounts this is treated
+  as low sensitivity; re-evaluate before reusing this app for anything more
   sensitive.
 - The Safe Apps SDK is initialized with `allowedDomains: [/^https:\/\/app\.safe\.global$/]`
   (`src/safe.ts`) so it only accepts postMessage responses from Safe's own

@@ -40,8 +40,16 @@ export interface BatchPayload {
  */
 export type WireTx = [to: string, amountWei: string]
 
-/** Observed max batch size is 41 rows; 100 leaves headroom without being unbounded. */
-export const MAX_TXS = 100
+/**
+ * Observed max batch size is 41 rows. 50 leaves some headroom while staying
+ * safely under app.safe.global's real limit: it's served through CloudFront/S3,
+ * which rejects any request whose total header section (including the request
+ * line, i.e. the URL) exceeds 8192 bytes — measured empirically at ~70 rows
+ * (see link-budget.test.ts). A link that hits that limit fails as an opaque S3
+ * error page, not anything this app controls, so the cap needs real headroom
+ * below it, not just below the observed max batch size.
+ */
+export const MAX_TXS = 50
 
 export interface WirePayload {
   v: 1
