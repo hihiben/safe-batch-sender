@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # This repo has no dependencies and no build step, so there is nothing to install.
+
+      - name: No markup-assigning APIs in the app
+        # The design's §8 asks for this to be mechanical rather than a matter of discipline. Our
+        # origin is allowed to call sdk.txs.send, so script injection into this page would bypass
+        # the confirm screen entirely and leave Safe's modal as the only remaining check.
+        #
+        # The --include filters keep this file out of its own grep: the patterns live in a .yml,
+        # and only .js/.html/.css/.json are searched. No exception list, nothing to grow.
+        run: |
+          if grep -rniE 'innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function\(' \
+              --include='*.js' --include='*.html' --include='*.css' --include='*.json' . ; then
+            echo "::error::a markup-assigning or code-evaluating API appears in the source"
+            exit 1
+          fi
+          echo "clean"
+
+      - name: The pinned parent origin agrees between the CSP and the client
+        # vendor/safe-client.js enforces the origin; index.html repeats it in frame-ancestors. The
+        # meta-delivered directive is advisory (frame-ancestors is ignored in a <meta> element), but
+        # the two values still have to say the same thing or the file comments become lies.
+        run: |
+          origin=$(grep -oE "SAFE_PARENT_ORIGIN = '[^']+'" vendor/safe-client.js | sed -E "s/.*'(.*)'/\1/")
+          echo "client pins: $origin"
+          grep -qF "frame-ancestors $origin" index.html
+          echo "index.html agrees"
+
+      - name: Tests
+        run: node --test test/

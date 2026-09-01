@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!--
+      Strict policy. Notes on what each part is doing:
+        default-src 'none'   no images, no fonts, and — deliberately — no fetch/XHR/WebSocket.
+                             This app makes no network requests of any kind; the CSP enforces that
+                             rather than leaving it to discipline.
+        script-src 'self'    so no inline <script> anywhere; app.js and its imports are files.
+        style-src  'self'    so no inline <style> and no style="" attributes; app.css is a file.
+        frame-ancestors      ADVISORY ONLY, and kept for the day this is served with real headers:
+                             a policy delivered in a <meta> element must ignore frame-ancestors,
+                             and GitHub Pages cannot set response headers. The check that actually
+                             holds is the parent-origin check in vendor/safe-client.js, which pins
+                             the same origin written here. Keep the two equal.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; frame-ancestors https://app.safe.global"
+    />
+
+    <title>Safe Batch Sender</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+
+  <body>
+    <main class="page">
+      <h1>Safe batch sender</h1>
+
+      <p class="status" id="status" role="status">Reading the link…</p>
+
+      <!-- Every region below is filled by app.js with textContent only. Nothing here is a
+           template that interpolates payload data. -->
+      <section id="refusal" class="panel panel-refuse" hidden>
+        <h2>This batch will not be sent</h2>
+        <p id="refusal-reason"></p>
+      </section>
+
+      <section id="batch" hidden></section>
+
+      <section id="checks" hidden></section>
+
+      <section id="actions" hidden></section>
+
+      <section id="result" class="panel panel-ok" hidden></section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

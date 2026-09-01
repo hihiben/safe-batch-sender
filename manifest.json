@@ -1,0 +1,5 @@
+{
+  "name": "Safe Batch Sender",
+  "description": "Reviews a batch of native transfers carried in the link, then proposes it to this Safe.",
+  "iconPath": "icon.svg"
+}
