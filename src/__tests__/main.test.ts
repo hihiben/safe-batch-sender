@@ -28,7 +28,10 @@ function app(): HTMLElement {
 }
 
 beforeEach(() => {
-  document.body.innerHTML = '<main id="app"></main>'
+  while (document.body.firstChild) document.body.removeChild(document.body.firstChild)
+  const main = document.createElement('main')
+  main.id = 'app'
+  document.body.appendChild(main)
   safeMocks.isInIframe.mockReset()
   safeMocks.createSdk.mockReset().mockReturnValue({})
   safeMocks.getSafeContext.mockReset()
