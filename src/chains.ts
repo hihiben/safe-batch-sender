@@ -23,5 +23,8 @@ export const CHAINS: Record<string, ChainInfo> = {
 }
 
 export function getChainInfo(chainId: string): ChainInfo | undefined {
-  return CHAINS[chainId]
+  // CHAINS is a plain object, so a lookup key like "__proto__" or "constructor"
+  // would otherwise resolve to an inherited Object.prototype value instead of
+  // undefined. hasOwn restricts the lookup to CHAINS's own declared entries.
+  return Object.hasOwn(CHAINS, chainId) ? CHAINS[chainId] : undefined
 }

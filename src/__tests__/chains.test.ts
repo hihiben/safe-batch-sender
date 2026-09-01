@@ -27,4 +27,8 @@ describe('CHAINS', () => {
   it('returns undefined for an unknown chainId', () => {
     expect(getChainInfo('999999')).toBeUndefined()
   })
+
+  it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty'])('does not resolve inherited Object.prototype property %j', (key) => {
+    expect(getChainInfo(key)).toBeUndefined()
+  })
 })
