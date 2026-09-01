@@ -36,7 +36,7 @@ export interface Mismatch {
  * from the same payload.txs array in one pass, so "what you see" and "what you sign"
  * can never drift apart.
  */
-export function prepare(payload: BatchPayload, ctx: SafeContext): Result<PreparedBatch, Mismatch[]> {
+export function prepare(payload: BatchPayload, ctx: SafeContext): Result<PreparedBatch, Mismatch> {
   const mismatches: Mismatch[] = []
   if (payload.chainId !== ctx.chainId) {
     mismatches.push({ field: 'chainId', expected: ctx.chainId, actual: payload.chainId })

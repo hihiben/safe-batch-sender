@@ -79,7 +79,7 @@ function base64UrlEncode(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError[]> {
+function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError> {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return { ok: false, errors: [{ code: 'INVALID_SHAPE', message: 'Payload must be a JSON object' }] }
   }
@@ -140,7 +140,7 @@ function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError[]>
   }
 }
 
-export function decodePayload(fragment: string): Result<BatchPayload, PayloadError[]> {
+export function decodePayload(fragment: string): Result<BatchPayload, PayloadError> {
   const trimmed = fragment.startsWith('#') ? fragment.slice(1) : fragment
   if (trimmed.length === 0) {
     return { ok: false, errors: [{ code: 'MALFORMED_BASE64', message: 'Payload fragment is empty' }] }
