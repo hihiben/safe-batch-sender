@@ -151,6 +151,16 @@ This imports the same `encodePayload` the app decodes with, so there is only
 one encoder implementation in this repo (Apps Script is necessarily separate —
 see above).
 
+**Node version**: `make-link.mjs` imports `../src/payload.ts` directly and
+relies on Node's native TypeScript type-stripping support. Confirmed working
+(empirically, not assumed) on Node 20.19.6 and Node 24.18.0/24.20.0 — Node
+backported `--experimental-strip-types` to the 20.x line, so plain `node
+tools/make-link.mjs` works without any flag on both. Not verified on other
+Node 20.x/21.x/22.x/23.x patches. `src/__tests__/make-link.test.ts` spawns
+this script as a real subprocess and decodes its output back, so a CI run
+that can't execute it (wrong Node version, or a real regression) fails loudly
+via `npm test` instead of only being discovered when someone runs it by hand.
+
 ## Deployment
 
 Pushing to `main` builds and deploys to GitHub Pages via
