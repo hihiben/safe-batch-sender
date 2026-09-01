@@ -151,6 +151,7 @@ vendor/safe-client.js          the postMessage client, with provenance comments
 manifest.json                  Safe App manifest: name + description + iconPath
 icon.svg
 tools/make-link.js             build a test link without going through Apps Script
+tools/serve.py                 local dev server; exists only to send the CORS header Safe needs
 test/                          node's built-in test runner, no dependencies
 package.json                   exists only to mark the .js files as ESM for node. Nothing to install
 ```
@@ -178,9 +179,22 @@ to check that by eye.
 ## Local development
 
 ```sh
-python3 -m http.server 8000
+python3 tools/serve.py                     # not `python3 -m http.server` — see below
 node tools/make-link.js --chain 4663 --safe 0xEeFa… 0xRecipient=0.0005
 ```
+
+`tools/serve.py` exists for one header. Safe fetches `<appUrl>/manifest.json` cross-origin from
+`https://app.safe.global`, and `python3 -m http.server` sends no `Access-Control-Allow-Origin`, so
+that fetch throws. The consequences are asymmetric and easy to misread:
+
+- *Apps → Add custom app* **refuses the URL** — its dialog keeps the button disabled until the
+  manifest loads, and reports "The app doesn't support Safe App functionality", which sounds like a
+  problem with this app rather than with the server.
+- An `apps/open?appUrl=…` link **still works**, because the iframe's `src` comes from the URL, not
+  from the manifest. Safe just has no name or icon for the app.
+
+GitHub Pages sends `access-control-allow-origin: *` on everything including 404s, so this is purely
+a local concern.
 
 Two loops:
 
@@ -191,11 +205,10 @@ Two loops:
   `protocolsAllowed.includes(protocol) || hostname.split('.').pop() === 'localhost'`, and the
   iframe accepts `http:`. Then open the `open in Safe` link.
 
-  Unverified: whether the browser permits `https://app.safe.global` to `fetch`
-  `http://localhost:8000/manifest.json`. Loopback is a potentially-trustworthy origin so it is not
-  mixed content, but Chrome's Private Network Access may want a preflight. If it fails, serve the
-  directory over local HTTPS (`mkcert`) instead. Safe's own docs advise matching the interface's
-  protocol.
+  Verified working: `https://app.safe.global` can reach `http://localhost` — loopback is a
+  potentially-trustworthy origin, so it is not mixed content. If a browser ever refuses it (Chrome's
+  Private Network Access can want a preflight), serve over local HTTPS with `mkcert` instead; Safe's
+  own docs advise matching the interface's protocol.
 
 The custom app only ever needs registering once: Safe strips query and fragment
 (`stripUrlParams()` → `origin + pathname`) when matching and when fetching the manifest, but the
