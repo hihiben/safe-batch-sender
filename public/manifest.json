@@ -1,0 +1,5 @@
+{
+  "name": "Safe Batch Sender",
+  "description": "Propose a batch of native-token transfers from a payload encoded in the link.",
+  "iconPath": "icon.svg"
+}
