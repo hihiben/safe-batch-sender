@@ -24,6 +24,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # This XSS surface only has one mechanical guarantee: nothing ever writes
+      # untrusted content through innerHTML. Grep for it so a regression can't
+      # reach production — this is the only workflow that actually deploys.
+      - name: Forbid unsafe DOM sinks
+        run: |
+          if grep -rnE 'innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function\(' src/; then
+            echo "Found a forbidden DOM sink in src/ — render.ts must only use textContent." >&2
+            exit 1
+          fi
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
