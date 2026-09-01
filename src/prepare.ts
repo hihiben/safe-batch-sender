@@ -9,7 +9,6 @@ export interface SafeContext {
 export interface PreparedRow {
   to: string
   amountWei: string
-  tokenAddress?: string
 }
 
 export interface PreparedTx {
@@ -32,9 +31,10 @@ export interface Mismatch {
 }
 
 /**
- * Rows (what the owner reviews) and txs (what gets sent to the Safe) are derived
- * from the same payload.txs array in one pass, so "what you see" and "what you sign"
- * can never drift apart.
+ * txs (what gets sent to the Safe) is derived FROM rows (what the owner reviews),
+ * not computed separately from payload.txs — so there is exactly one array that
+ * decides what the preview shows, and it's the same array that decides what gets
+ * signed. There is no code path where they could diverge.
  */
 export function prepare(payload: BatchPayload, ctx: SafeContext): Result<PreparedBatch, Mismatch> {
   const mismatches: Mismatch[] = []
@@ -46,15 +46,9 @@ export function prepare(payload: BatchPayload, ctx: SafeContext): Result<Prepare
   }
   if (mismatches.length > 0) return { ok: false, errors: mismatches }
 
-  const rows: PreparedRow[] = []
-  const txs: PreparedTx[] = []
-  let totalWei = 0n
+  const rows: PreparedRow[] = payload.txs.map((tx) => ({ to: tx.to, amountWei: tx.amountWei }))
+  const txs: PreparedTx[] = rows.map((row) => ({ to: row.to, value: row.amountWei, data: '0x' }))
+  const totalWei = rows.reduce((sum, row) => sum + BigInt(row.amountWei), 0n).toString()
 
-  for (const tx of payload.txs) {
-    rows.push(tx.tokenAddress ? { to: tx.to, amountWei: tx.amountWei, tokenAddress: tx.tokenAddress } : { to: tx.to, amountWei: tx.amountWei })
-    txs.push({ to: tx.to, value: tx.amountWei, data: '0x' })
-    totalWei += BigInt(tx.amountWei)
-  }
-
-  return { ok: true, value: { rows, txs, totalWei: totalWei.toString(), label: payload.label } }
+  return { ok: true, value: { rows, txs, totalWei, label: payload.label } }
 }

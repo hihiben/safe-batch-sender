@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodePayload, encodePayload } from '../payload.js'
+import { MAX_TXS, decodePayload, encodePayload } from '../payload.js'
 
 const BEN_FIXTURE_FRAGMENT =
   'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweEVlRmE2MjIxMDliNUU5N0I5ODIyMDcyOUZhMzVmQzAzN0I3QjMyMTIiLCJsYWJlbCI6IiIsInR4cyI6W1siMHg5NTcyNTYxZUJlMTk4NTY2YkJhM0I0ZTdDNTNGODJBYzI3NTg3NDMxIiwiNTAwMDAwMDAwMDAwMDAwIl1dfQ'
@@ -142,6 +142,50 @@ describe('decodePayload', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
     expect(result.value.label).toBe('補 gas 給 filler')
+  })
+
+  it('rejects a 3-tuple entry with a valid token address (ERC-20 not supported yet)', () => {
+    const fragment = jsonToFragment({
+      v: 1,
+      chainId: '1',
+      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      label: '',
+      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1', '0x6B175474E89094C44Da98b954EedeAC495271d0F']],
+    })
+    const result = decodePayload(fragment)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected error')
+    expect(result.errors.some((e) => e.code === 'UNSUPPORTED_TOKEN' && /ERC-20/.test(e.message))).toBe(true)
+  })
+
+  it('rejects a 3-tuple entry with an invalid token address', () => {
+    const fragment = jsonToFragment({
+      v: 1,
+      chainId: '1',
+      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      label: '',
+      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1', 'not-an-address']],
+    })
+    const result = decodePayload(fragment)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected error')
+    expect(result.errors.some((e) => e.code === 'UNSUPPORTED_TOKEN' && /ERC-20/.test(e.message))).toBe(true)
+  })
+
+  it('rejects more than MAX_TXS entries', () => {
+    const tooMany = Array.from({ length: MAX_TXS + 1 }, () => ['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1'])
+    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', label: '', txs: tooMany })
+    const result = decodePayload(fragment)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected error')
+    expect(result.errors.some((e) => e.code === 'TOO_MANY_TXS')).toBe(true)
+  })
+
+  it('accepts exactly MAX_TXS entries', () => {
+    const exactly = Array.from({ length: MAX_TXS }, () => ['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1'])
+    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', label: '', txs: exactly })
+    const result = decodePayload(fragment)
+    expect(result.ok).toBe(true)
   })
 
   it('rejects malformed base64', () => {

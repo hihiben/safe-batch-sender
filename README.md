@@ -45,9 +45,17 @@ no live Safe to validate against outside the iframe.
 }
 ```
 
-- `txs` entries are `[to, amountWei]` today. A third element, `tokenAddress`, is
-  reserved for a future ERC-20 extension — omitting it means native token, so
-  adding it later is not a breaking change.
+- `txs` entries must be exactly `[to, amountWei]` — native token only. A third
+  element (a token address, for a future ERC-20 extension) is **rejected today**,
+  not silently ignored: a decoder that accepted it while the preview and the
+  proposed transaction stayed native-only would let a link say "5 DAI" and
+  actually propose 5 ETH, with nothing in the UI to catch it. ERC-20 support
+  will be introduced as a version bump (`v: 2`) once the preview and the
+  proposed transaction both understand it, not by quietly accepting the syntax
+  ahead of time.
+- `txs` may contain at most `MAX_TXS` (100) entries — well above the observed
+  41-row max, low enough that a malformed or malicious link can't force
+  thousands of DOM rows into the preview.
 - `amountWei` is a decimal string (positive integer, no sign/decimal/exponent).
 - Addresses may be given all-lowercase, all-uppercase, or correctly
   EIP-55-checksummed. Mixed case that fails the checksum is rejected outright.

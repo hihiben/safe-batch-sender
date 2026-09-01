@@ -9,6 +9,8 @@ export type PayloadErrorCode =
   | 'UNSUPPORTED_VERSION'
   | 'INVALID_SAFE_ADDRESS'
   | 'EMPTY_TXS'
+  | 'TOO_MANY_TXS'
+  | 'UNSUPPORTED_TOKEN'
   | 'INVALID_TX_ADDRESS'
   | 'INVALID_TX_AMOUNT'
 
@@ -21,7 +23,6 @@ export interface PayloadError {
 export interface NormalizedTx {
   to: string
   amountWei: string
-  tokenAddress?: string
 }
 
 export interface BatchPayload {
@@ -32,8 +33,15 @@ export interface BatchPayload {
   txs: NormalizedTx[]
 }
 
-/** Wire shape: what the Apps Script helper actually emits — tuples, not objects. */
-export type WireTx = [to: string, amountWei: string] | [to: string, amountWei: string, tokenAddress: string]
+/**
+ * Wire shape: what the Apps Script helper actually emits — tuples, not objects.
+ * Only 2-tuples are accepted today. A 3rd element (token address) is rejected
+ * outright rather than silently ignored — see UNSUPPORTED_TOKEN below.
+ */
+export type WireTx = [to: string, amountWei: string]
+
+/** Observed max batch size is 41 rows; 100 leaves headroom without being unbounded. */
+export const MAX_TXS = 100
 
 export interface WirePayload {
   v: 1
@@ -103,16 +111,22 @@ function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError> {
 
   if (!Array.isArray(obj.txs) || obj.txs.length === 0) {
     errors.push({ code: 'EMPTY_TXS', message: 'txs must be a non-empty array' })
+  } else if (obj.txs.length > MAX_TXS) {
+    errors.push({ code: 'TOO_MANY_TXS', message: `txs has ${obj.txs.length} entries, which exceeds the limit of ${MAX_TXS}` })
   }
 
   const txs: NormalizedTx[] = []
   if (Array.isArray(obj.txs)) {
     obj.txs.forEach((entry: unknown, index: number) => {
-      if (!Array.isArray(entry) || entry.length < 2 || entry.length > 3) {
-        errors.push({ code: 'INVALID_SHAPE', message: `txs[${index}] must be a [to, amountWei] or [to, amountWei, tokenAddress] tuple`, index })
+      if (Array.isArray(entry) && entry.length === 3) {
+        errors.push({ code: 'UNSUPPORTED_TOKEN', message: `txs[${index}]: ERC-20 tokens are not supported yet — remove the third (token address) element`, index })
         return
       }
-      const [rawTo, rawAmount, rawToken] = entry as unknown[]
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        errors.push({ code: 'INVALID_SHAPE', message: `txs[${index}] must be a [to, amountWei] tuple`, index })
+        return
+      }
+      const [rawTo, rawAmount] = entry as unknown[]
 
       const to = normalizeAddress(rawTo)
       if (!to) errors.push({ code: 'INVALID_TX_ADDRESS', message: `txs[${index}] has an invalid recipient address: ${JSON.stringify(rawTo)}`, index })
@@ -120,15 +134,7 @@ function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError> {
       const amountWei = isPositiveIntegerString(rawAmount) ? rawAmount : undefined
       if (!amountWei) errors.push({ code: 'INVALID_TX_AMOUNT', message: `txs[${index}] has an invalid amount: ${JSON.stringify(rawAmount)}`, index })
 
-      let tokenAddress: string | undefined
-      if (rawToken !== undefined) {
-        tokenAddress = normalizeAddress(rawToken)
-        if (!tokenAddress) errors.push({ code: 'INVALID_TX_ADDRESS', message: `txs[${index}] has an invalid token address: ${JSON.stringify(rawToken)}`, index })
-      }
-
-      if (to && amountWei) {
-        txs.push(tokenAddress ? { to, amountWei, tokenAddress } : { to, amountWei })
-      }
+      if (to && amountWei) txs.push({ to, amountWei })
     })
   }
 
