@@ -34,7 +34,7 @@ export interface BatchPayload {
 }
 
 /**
- * Wire shape: what the Apps Script helper actually emits — tuples, not objects.
+ * Wire shape: what the link generators actually emit — tuples, not objects.
  * Only 2-tuples are accepted today. A 3rd element (token address) is rejected
  * outright rather than silently ignored — see UNSUPPORTED_TOKEN below.
  */

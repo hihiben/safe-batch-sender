@@ -12,10 +12,13 @@ const BEN_FIXTURE_DECODED = {
   txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
 }
 
-// Produced by MAKE_BATCH_LINK (apps-script/Code.gs) running in real Google Sheets
-// on 2026-09-01. This is the artifact that closed the "Apps Script encoding is only
-// inferred" gap: Utilities.base64EncodeWebSafe emits unpadded base64url that this
-// app's decoder accepts and that encodePayload reproduces byte-identically.
+// Produced by a MAKE_BATCH_LINK harness running in real Google Sheets on 2026-09-01.
+// That harness (apps-script/Code.gs) has since been removed, but this fragment is kept
+// deliberately: it is the artifact that closed the "Apps Script encoding is only
+// inferred" gap, proving Utilities.base64EncodeWebSafe emits unpadded base64url that
+// this app's decoder accepts and that encodePayload reproduces byte-identically. The
+// production generator (gas-refill-util's buildBatchLink) uses that same call, so this
+// fixture still covers the encoder it depends on.
 const GAS_FIXTURE_FRAGMENT =
   'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweEVlRmE2MjIxMDliNUU5N0I5ODIyMDcyOUZhMzVmQzAzN0I3QjMyMTIiLCJsYWJlbCI6ImdhcyByZWZpbGwgdGVzdCIsInR4cyI6W1siMHg5NTcyNTYxZUJlMTk4NTY2YkJhM0I0ZTdDNTNGODJBYzI3NTg3NDMxIiwiNTAwMDAwMDAwMDAwMDAwIl0sWyIweDVGOEQ3NGZDRkUwQjQyYTNhNGQ1NjQ2YzBmNWQ5MTI0MDU5ODE3YTIiLCI1MDAwMDAwMDAwMDAwMDAiXV19'
 
