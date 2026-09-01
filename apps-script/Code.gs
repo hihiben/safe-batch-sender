@@ -40,6 +40,28 @@ function resolveChain_(chainNameOrId) {
   throw new Error('Unknown chain: ' + chainNameOrId + '. Known: ' + CHAIN_TABLE.map(function (c) { return c.shortName }).join(', '))
 }
 
+var POSITIVE_INTEGER_RE = /^[1-9][0-9]*$/
+
+/**
+ * Sheets stores numeric cells as IEEE-754 floats. A wei amount typed into a
+ * numeric cell can silently lose precision (`123456789012345678` becomes
+ * `123456789012345680`) or get reformatted into scientific notation the app's
+ * decoder rejects (`1e21`) — with no warning at the sheet. Refusing anything
+ * but a plain-text cell here means that failure happens loudly, in the sheet,
+ * instead of silently or three steps downstream in the app.
+ */
+function validateAmountCell_(value, rowNumber) {
+  if (typeof value !== 'string') {
+    throw new Error(
+      'Row ' + rowNumber + ': amountWei must be plain text, got a ' + typeof value + ' (' + value + '). ' +
+      'Set the amountWei column to plain text format (Format → Number → Plain text) before entering wei amounts.'
+    )
+  }
+  if (!POSITIVE_INTEGER_RE.test(value)) {
+    throw new Error('Row ' + rowNumber + ': amountWei "' + value + '" is not a positive integer wei string.')
+  }
+}
+
 function encodePayloadWebSafe_(payload) {
   var json = JSON.stringify(payload)
   // Ben's reference link has no base64 padding; the app's decoder accepts both
@@ -60,9 +82,22 @@ function MAKE_BATCH_LINK(chain, safeAddress, rows, label) {
   var chainEntry = resolveChain_(chain)
 
   var normalizedRows = Array.isArray(rows[0]) ? rows : [rows]
-  var txs = normalizedRows
-    .filter(function (row) { return row[0] !== '' && row[0] != null && row[1] !== '' && row[1] != null })
-    .map(function (row) { return [String(row[0]).trim(), String(row[1]).trim()] })
+  var txs = []
+  for (var i = 0; i < normalizedRows.length; i++) {
+    var row = normalizedRows[i]
+    var address = row[0]
+    var amount = row[1]
+    var addressBlank = address === '' || address == null
+    var amountBlank = amount === '' || amount == null
+    if (addressBlank && amountBlank) continue // fully empty row — expected when passing a range like A2:B100
+
+    if (addressBlank || typeof address !== 'string' || address.trim() === '') {
+      throw new Error('Row ' + (i + 1) + ': recipient address must be a non-empty text cell.')
+    }
+    validateAmountCell_(amount, i + 1)
+
+    txs.push([address.trim(), amount.trim()])
+  }
 
   if (txs.length === 0) {
     throw new Error('No non-empty [address, amountWei] rows found in the given range.')

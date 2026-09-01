@@ -122,12 +122,23 @@ npm run build      # outputs to dist/
 =MAKE_BATCH_LINK("robinhood", "0xEeFa622109b5E97B98220729Fa35fC037B7B3212", A2:B10, "gas refill")
 ```
 
-`A2:B10` is a 2-column range of `[address, amountWei]` rows; blank rows are
-skipped. Paste `Code.gs` into the Sheet's Apps Script editor (Extensions →
-Apps Script) to use it. This is a standalone reimplementation of the payload
-encoder in Apps Script's own runtime (it can't import `src/payload.ts` across
-that boundary) — see the file header for what that means if the wire format
-ever changes.
+`A2:B10` is a 2-column range of `[address, amountWei]` rows; fully blank rows
+are skipped (so passing a generously-sized range like `A2:B100` is fine), but
+a row with one cell filled and the other blank is treated as a mistake and
+throws rather than being silently dropped. Paste `Code.gs` into the Sheet's
+Apps Script editor (Extensions → Apps Script) to use it. This is a standalone
+reimplementation of the payload encoder in Apps Script's own runtime (it can't
+import `src/payload.ts` across that boundary) — see the file header for what
+that means if the wire format ever changes.
+
+**The `amountWei` column must be formatted as plain text**, not a number
+(select the column → Format → Number → Plain text, *before* typing values in).
+Sheets stores numeric cells as IEEE-754 floats: large wei amounts can lose
+precision, or get reformatted into scientific notation (`1e+21`) that the
+app's decoder rejects outright — either way, silently. `MAKE_BATCH_LINK` throws
+immediately if a cell in that column isn't a text value, naming the row and
+telling you to fix the column format, rather than letting a bad amount reach
+a generated link.
 
 ## Local link generation (testing)
 
