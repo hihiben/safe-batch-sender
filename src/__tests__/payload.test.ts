@@ -12,6 +12,24 @@ const BEN_FIXTURE_DECODED = {
   txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
 }
 
+// Produced by MAKE_BATCH_LINK (apps-script/Code.gs) running in real Google Sheets
+// on 2026-09-01. This is the artifact that closed the "Apps Script encoding is only
+// inferred" gap: Utilities.base64EncodeWebSafe emits unpadded base64url that this
+// app's decoder accepts and that encodePayload reproduces byte-identically.
+const GAS_FIXTURE_FRAGMENT =
+  'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweEVlRmE2MjIxMDliNUU5N0I5ODIyMDcyOUZhMzVmQzAzN0I3QjMyMTIiLCJsYWJlbCI6ImdhcyByZWZpbGwgdGVzdCIsInR4cyI6W1siMHg5NTcyNTYxZUJlMTk4NTY2YkJhM0I0ZTdDNTNGODJBYzI3NTg3NDMxIiwiNTAwMDAwMDAwMDAwMDAwIl0sWyIweDVGOEQ3NGZDRkUwQjQyYTNhNGQ1NjQ2YzBmNWQ5MTI0MDU5ODE3YTIiLCI1MDAwMDAwMDAwMDAwMDAiXV19'
+
+const GAS_FIXTURE_DECODED = {
+  v: 1,
+  chainId: '4663',
+  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+  label: 'gas refill test',
+  txs: [
+    { to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' },
+    { to: '0x5F8D74fCFE0B42a3a4d5646c0f5d9124059817a2', amountWei: '500000000000000' },
+  ],
+}
+
 function jsonToFragment(json: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(json))
   let binary = ''
@@ -25,6 +43,24 @@ describe('decodePayload', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
     expect(result.value).toEqual(BEN_FIXTURE_DECODED)
+  })
+
+  it('decodes a fragment produced by the real Google Apps Script helper', () => {
+    const result = decodePayload(GAS_FIXTURE_FRAGMENT)
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.value).toEqual(GAS_FIXTURE_DECODED)
+  })
+
+  it('re-encodes the Apps Script fixture byte-identically (no cross-runtime drift)', () => {
+    const reencoded = encodePayload({
+      v: 1,
+      chainId: GAS_FIXTURE_DECODED.chainId,
+      safe: GAS_FIXTURE_DECODED.safe,
+      label: GAS_FIXTURE_DECODED.label,
+      txs: GAS_FIXTURE_DECODED.txs.map((t): [string, string] => [t.to, t.amountWei]),
+    })
+    expect(reencoded).toBe(GAS_FIXTURE_FRAGMENT)
   })
 
   it('decodes the same payload when it carries base64 padding', () => {
