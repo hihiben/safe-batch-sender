@@ -32,8 +32,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   ])
 }
 
+/**
+ * Without this, any page can iframe this app on its real hihiben.github.io
+ * origin and answer its postMessage calls itself, rendering a fully-formed
+ * "Propose to Safe" preview with attacker-chosen amounts/symbols (the SDK
+ * default is no origin restriction at all). The attacker still can't get a
+ * signature out of it — Safe itself never validated this origin either — but
+ * locking it removes a phishing surface for free.
+ *
+ * The option is `allowedDomains` (not `allowedOrigins`, which is the SDK's own
+ * private internal field name for the same thing — confirmed against
+ * node_modules/@safe-global/safe-apps-sdk's Opts type).
+ */
 export function createSdk(): SafeAppsSDK {
-  return new SafeAppsSDK()
+  return new SafeAppsSDK({ allowedDomains: [/^https:\/\/app\.safe\.global$/] })
 }
 
 export async function getSafeContext(sdk: SafeAppsSDK): Promise<SafeContext> {

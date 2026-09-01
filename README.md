@@ -176,3 +176,10 @@ sheet links.
   local browser history. For gas-refill amounts this is treated as low
   sensitivity; re-evaluate before reusing this app for anything more
   sensitive.
+- The Safe Apps SDK is initialized with `allowedDomains: [/^https:\/\/app\.safe\.global$/]`
+  (`src/safe.ts`) so it only accepts postMessage responses from Safe's own
+  origin — the SDK default is no restriction at all, which would let any page
+  iframe this app on its real origin and drive a fake-but-fully-rendered
+  "Propose to Safe" preview. If this app is ever opened through a self-hosted
+  Safe{Wallet} fork instead of `app.safe.global`, that domain must be added to
+  this list or the app will refuse to load inside it.
