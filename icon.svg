@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Safe batch sender">
-  <rect width="128" height="128" rx="26" fill="#12b886"/>
-  <g fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="30" y="30" width="46" height="26" rx="5"/>
-    <rect x="30" y="66" width="46" height="26" rx="5"/>
-    <path d="M84 43h18M84 79h18"/>
-    <path d="M95 36l8 7-8 7M95 72l8 7-8 7"/>
-  </g>
-</svg>
