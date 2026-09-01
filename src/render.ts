@@ -11,6 +11,18 @@ export interface PreviewOptions {
   onPropose?: () => void
 }
 
+/**
+ * `button` toggles disabled/text while a propose is in flight; `statusEl` is
+ * where the outcome (error or success) gets written. Errors write into
+ * `statusEl` only — never into `container` — so a failed/rejected propose
+ * leaves the preview and the button in place and retryable, instead of
+ * wiping the whole screen and forcing a reload.
+ */
+export interface PreviewHandle {
+  button: HTMLButtonElement
+  statusEl: HTMLElement
+}
+
 function clear(container: HTMLElement): void {
   while (container.firstChild) container.removeChild(container.firstChild)
 }
@@ -49,8 +61,8 @@ export function renderNoPayload(container: HTMLElement): void {
   container.appendChild(p)
 }
 
-/** Returns the Propose button so the caller can wire up disable/re-enable during the send, or null in read-only mode. */
-export function renderPreview(container: HTMLElement, opts: PreviewOptions): HTMLButtonElement | null {
+/** Returns a handle to the button + status slot, or null in read-only mode (no button at all). */
+export function renderPreview(container: HTMLElement, opts: PreviewOptions): PreviewHandle | null {
   clear(container)
 
   if (opts.readOnly) {
@@ -103,13 +115,26 @@ export function renderPreview(container: HTMLElement, opts: PreviewOptions): HTM
   button.textContent = 'Propose to Safe'
   if (opts.onPropose) button.addEventListener('click', opts.onPropose)
   container.appendChild(button)
-  return button
+
+  const statusEl = document.createElement('div')
+  statusEl.className = 'propose-status'
+  container.appendChild(statusEl)
+
+  return { button, statusEl }
 }
 
-export function renderProposed(container: HTMLElement, safeTxHash: string): void {
-  clear(container)
+export function renderProposeError(statusEl: HTMLElement, message: string): void {
+  clear(statusEl)
+  const p = document.createElement('p')
+  p.className = 'error-title'
+  p.textContent = message
+  statusEl.appendChild(p)
+}
+
+export function renderProposeSuccess(statusEl: HTMLElement, safeTxHash: string): void {
+  clear(statusEl)
   const p = document.createElement('p')
   p.className = 'success'
   p.textContent = `Proposed. safeTxHash: ${safeTxHash}`
-  container.appendChild(p)
+  statusEl.appendChild(p)
 }

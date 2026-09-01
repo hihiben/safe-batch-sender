@@ -2,7 +2,7 @@ import type SafeAppsSDK from '@safe-global/safe-apps-sdk'
 import { getChainInfo } from './chains.js'
 import { decodePayload } from './payload.js'
 import { prepare, type PreparedTx } from './prepare.js'
-import { renderErrors, renderLoading, renderNoPayload, renderPreview, renderProposed } from './render.js'
+import { renderErrors, renderLoading, renderNoPayload, renderPreview, renderProposeError, renderProposeSuccess, type PreviewHandle } from './render.js'
 import { createSdk, getSafeContext, isInIframe, proposeBatch } from './safe.js'
 
 function requireApp(): HTMLElement {
@@ -11,21 +11,26 @@ function requireApp(): HTMLElement {
   return app
 }
 
-async function handlePropose(sdk: SafeAppsSDK, txs: PreparedTx[], button: HTMLButtonElement): Promise<void> {
-  const root = requireApp()
+export async function handlePropose(sdk: SafeAppsSDK, txs: PreparedTx[], handle: PreviewHandle): Promise<void> {
+  const { button, statusEl } = handle
   button.disabled = true
   button.textContent = 'Waiting for signature…'
   try {
     const safeTxHash = await proposeBatch(sdk, txs)
-    renderProposed(root, safeTxHash)
+    button.disabled = true
+    button.textContent = 'Proposed'
+    renderProposeSuccess(statusEl, safeTxHash)
   } catch (err) {
+    // Only statusEl is touched here — the preview table and the button itself
+    // stay exactly as they were, so a rejected signature is retryable without
+    // a page reload (see render.ts's PreviewHandle doc comment for why).
     button.disabled = false
     button.textContent = 'Propose to Safe'
-    renderErrors(root, 'Propose failed.', [err instanceof Error ? err.message : String(err)])
+    renderProposeError(statusEl, err instanceof Error ? err.message : String(err))
   }
 }
 
-async function main(): Promise<void> {
+export async function run(): Promise<void> {
   const root = requireApp()
   const fragment = window.location.hash
   if (!fragment) {
@@ -82,7 +87,7 @@ async function main(): Promise<void> {
     return
   }
 
-  const button = renderPreview(root, {
+  const handle = renderPreview(root, {
     label: prepared.value.label,
     rows: prepared.value.rows,
     totalWei: prepared.value.totalWei,
@@ -90,11 +95,16 @@ async function main(): Promise<void> {
     nativeDecimals: ctx.nativeDecimals,
     readOnly: false,
     onPropose: () => {
-      if (button) void handlePropose(sdk, prepared.value.txs, button)
+      if (handle) void handlePropose(sdk, prepared.value.txs, handle)
     },
   })
 }
 
-main().catch((err) => {
-  renderErrors(requireApp(), 'Unexpected error.', [err instanceof Error ? err.message : String(err)])
-})
+// Guarded so importing this module in a test doesn't also run the app against
+// whatever the test's DOM/location happen to look like. Vitest sets MODE to
+// 'test' by default; Vite's production build never does.
+if (import.meta.env.MODE !== 'test') {
+  run().catch((err) => {
+    renderErrors(requireApp(), 'Unexpected error.', [err instanceof Error ? err.message : String(err)])
+  })
+}
