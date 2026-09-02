@@ -115,6 +115,20 @@ function isPositiveIntegerString(value: unknown): value is string {
   return typeof value === 'string' && POSITIVE_INTEGER.test(value)
 }
 
+function hasLoneSurrogate(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const codeUnit = value.charCodeAt(i)
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(i + 1)
+      if (next < 0xdc00 || next > 0xdfff) return true
+      i++
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return true
+    }
+  }
+  return false
+}
+
 function base64UrlDecode(input: string): Uint8Array {
   const normalized = input.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
@@ -366,6 +380,12 @@ export function decodePayload(fragment: string): Result<BatchPayload, PayloadErr
   // are permanently reserved to 0x01..0x1F, none of which can begin UTF-8 JSON.
   const marker = bytes[0]
 
+  // v1 historically accepts padded standard base64. Keep that compatibility,
+  // but v2 has one canonical representation: unpadded base64url only.
+  if (marker === V2_MARKER && !/^[A-Za-z0-9_-]*$/.test(trimmed)) {
+    return { ok: false, errors: [{ code: 'MALFORMED_BASE64', message: 'Fragment is not valid base64url' }] }
+  }
+
   if (marker === 0x7b) {
     // v1 path, byte-for-byte unchanged from before the dispatcher existed.
     let json: string
@@ -432,6 +452,9 @@ export function encodePayloadV2(input: BatchInput): string {
     throw new Error(`Invalid safe address: ${JSON.stringify(input.safe)}`)
   }
 
+  if (hasLoneSurrogate(input.label)) {
+    throw new Error('Label contains a lone surrogate')
+  }
   const labelBytes = new TextEncoder().encode(input.label)
   if (labelBytes.length > MAX_LABEL_BYTES) {
     throw new Error(`Label is ${labelBytes.length} bytes, which exceeds the limit of ${MAX_LABEL_BYTES}`)
@@ -444,7 +467,16 @@ export function encodePayloadV2(input: BatchInput): string {
     throw new Error(`txs has ${input.txs.length} entries, which exceeds the limit of ${MAX_TXS}`)
   }
 
-  const rows = input.txs.map(([rawTo, rawAmount], index) => {
+  const rows = input.txs.map((row, index) => {
+    const runtimeRow: unknown = row
+    if (Array.isArray(runtimeRow) && runtimeRow.length === 3) {
+      throw new Error(`txs[${index}]: ERC-20 tokens are not supported yet — remove the third (token address) element`)
+    }
+    if (!Array.isArray(runtimeRow) || runtimeRow.length !== 2) {
+      throw new Error(`txs[${index}] must be a [to, amountWei] tuple`)
+    }
+    const [rawTo, rawAmount] = runtimeRow
+
     const to = normalizeAddress(rawTo)
     if (!to) throw new Error(`txs[${index}] has an invalid recipient address: ${JSON.stringify(rawTo)}`)
 

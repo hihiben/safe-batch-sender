@@ -1,9 +1,11 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { decodePayload } from '../payload.js'
+
+const A1 = '0x9572561eBe198566bBa3B4e7C53F82Ac27587431'
 
 // tools/make-link.mjs does `import '../src/payload.ts'` directly, relying on Node's
 // native TypeScript type-stripping (stable by default from Node 23.6+; Node 22 needs
@@ -12,6 +14,17 @@ import { decodePayload } from '../payload.js'
 // test is what actually verifies "does this Node version work", as opposed to
 // asserting a version number and hoping.
 describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
+  function runWithRows(rows: unknown, label = 'runtime shape test'): ReturnType<typeof spawnSync> {
+    const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
+    const rowsPath = join(dir, 'rows.json')
+    writeFileSync(rowsPath, JSON.stringify(rows))
+    return spawnSync(
+      process.execPath,
+      ['tools/make-link.mjs', '--chain', 'eth', '--format', 'v2', '--label', label, rowsPath],
+      { encoding: 'utf8', cwd: process.cwd() },
+    )
+  }
+
   it('produces a link this app decodes back to the same payload it was given', () => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')
@@ -68,6 +81,24 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     })
   })
 
+  it('rejects a runtime 3-tuple as unsupported ERC-20 input', () => {
+    const result = runWithRows([["0x9572561eBe198566bBa3B4e7C53F82Ac27587431", '5000000000000000000', '0x6B175474E89094C44Da98b954EedeAC495271d0F']])
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/ERC-20 tokens are not supported yet.*remove the third \(token address\) element/i)
+    expect(result.stdout).toBe('')
+  })
+
+  it.each([
+    { name: '4-tuple', row: [A1, '1', 'extra', 'extra'] },
+    { name: '1-tuple', row: [A1] },
+    { name: 'non-array row', row: { to: A1, amountWei: '1' } },
+  ])('rejects a runtime $name with a clear tuple-shape error', ({ row }) => {
+    const result = runWithRows([row])
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/txs\[0\] must be a \[to, amountWei\] tuple/i)
+    expect(result.stdout).toBe('')
+  })
+
   it('throws instead of printing a link once the Slack button url limit is exceeded', () => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')
@@ -89,5 +120,17 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
         { encoding: 'utf8', cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] },
       ),
     ).toThrow()
+  })
+
+  it('rejects a v2 format-maximum link that exceeds the Slack button url limit', () => {
+    const maxUint256 = (2n ** 256n - 1n).toString()
+    const rows = Array.from({ length: 50 }, (_, i) => [
+      `0x${(1000000000000000000000000000000000000000n + BigInt(i)).toString(16).padStart(40, '0')}`,
+      maxUint256,
+    ])
+    const result = runWithRows(rows, 'x'.repeat(64))
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain('exceeds the Slack button url limit of 3000')
+    expect(result.stdout).toBe('')
   })
 })

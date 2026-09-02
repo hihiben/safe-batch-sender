@@ -106,14 +106,24 @@ describe.each(GOLDEN_VECTORS)('golden vector $name', (vector) => {
   })
 })
 
-describe('v2 base64 padding parity with v1', () => {
-  it('decodes a v2 fragment identically when it carries base64 padding', () => {
+describe('v2 base64url canonical form', () => {
+  it('rejects a v2 fragment that carries standard-base64 characters or padding', () => {
     const padded = VECTOR_A.fragment.replace(/-/g, '+').replace(/_/g, '/')
     const withPadding = padded + '='.repeat((4 - (padded.length % 4)) % 4)
     const result = decodePayload(withPadding)
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error('expected ok')
-    expect(result.value).toEqual(VECTOR_A.decoded)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected error')
+    expect(result.errors).toEqual([{ code: 'MALFORMED_BASE64', message: 'Fragment is not valid base64url' }])
+  })
+
+  it.each([' ', '\n', '\t'])('rejects ASCII whitespace %j in an unpadded base64url fragment', (whitespace) => {
+    const fragment = encodePayloadV2({ chainId: '1', safe: SAFE, label: 'xx', txs: [[A1, '1'], [A1, '1']] })
+    expect(fragment.length % 4).toBe(3)
+    const at = Math.floor(fragment.length / 2)
+    const result = decodePayload(fragment.slice(0, at) + whitespace + fragment.slice(at))
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected error')
+    expect(result.errors).toEqual([{ code: 'MALFORMED_BASE64', message: 'Fragment is not valid base64url' }])
   })
 })
 
@@ -175,6 +185,10 @@ describe('encodePayloadV2 rejects invalid input', () => {
 
   it('accepts exactly a 64-byte label', () => {
     expect(() => encodePayloadV2({ ...validBase, label: 'x'.repeat(64) })).not.toThrow()
+  })
+
+  it.each(['x\ud800y', 'x\udcf0y'])('rejects a label containing a lone surrogate', (label) => {
+    expect(() => encodePayloadV2({ ...validBase, label })).toThrow(/lone surrogate/i)
   })
 
   it('rejects 0 rows', () => {

@@ -56,8 +56,11 @@ const V1_DEEP_LINK_BUDGET_CHARS = 5000
 // budget with headroom below that hard limit, checked separately from the
 // hard limit itself so a failure names which wall was hit.
 const V2_REGRESSION_BUDGET_CHARS = 2600
-const POLICY_WORST_LABEL = 'x'.repeat(64) // MAX_LABEL_BYTES, all-ASCII so 1 byte/char
-const POLICY_WORST_AMOUNT = (1n << 79n).toString() // minimal encoding is exactly 10 bytes
+// The gas-refill generator policy is documented in SAFE_BATCH_SENDER_PAYLOAD_V2.md
+// §6 as amounts <= 10 bytes. This is a consumer policy, not the v2 format maximum.
+const GAS_REFILL_POLICY_MAX_LABEL = 'x'.repeat(64) // MAX_LABEL_BYTES, all-ASCII so 1 byte/char
+const GAS_REFILL_POLICY_MAX_AMOUNT = (1n << 79n).toString() // minimal encoding is exactly 10 bytes
+const FORMAT_MAX_AMOUNT = (2n ** 256n - 1n).toString() // MAX_AMOUNT_BYTES = 32
 
 describe('deep link length budget', () => {
   describe('v1', () => {
@@ -77,14 +80,19 @@ describe('deep link length budget', () => {
   })
 
   describe('v2', () => {
-    const worstCaseLink = () => buildDeepLinkV2('robinhood', '4663', MAX_TXS, POLICY_WORST_LABEL, POLICY_WORST_AMOUNT)
+    const gasRefillPolicyMaxLink = () => buildDeepLinkV2('robinhood', '4663', MAX_TXS, GAS_REFILL_POLICY_MAX_LABEL, GAS_REFILL_POLICY_MAX_AMOUNT)
 
-    it(`policy worst case (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under the ${V2_REGRESSION_BUDGET_CHARS}-char regression budget`, () => {
-      expect(worstCaseLink().length).toBeLessThan(V2_REGRESSION_BUDGET_CHARS)
+    it(`gas-refill policy maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under the ${V2_REGRESSION_BUDGET_CHARS}-char regression budget`, () => {
+      expect(gasRefillPolicyMaxLink().length).toBeLessThan(V2_REGRESSION_BUDGET_CHARS)
     })
 
-    it(`policy worst case (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under Slack's ${SLACK_BUTTON_URL_LIMIT}-char button url limit`, () => {
-      expect(worstCaseLink().length).toBeLessThan(SLACK_BUTTON_URL_LIMIT)
+    it(`gas-refill policy maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under Slack's ${SLACK_BUTTON_URL_LIMIT}-char button url limit`, () => {
+      expect(gasRefillPolicyMaxLink().length).toBeLessThan(SLACK_BUTTON_URL_LIMIT)
+    })
+
+    it(`format maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 32-byte amounts) exceeds Slack's ${SLACK_BUTTON_URL_LIMIT}-char button url limit`, () => {
+      const link = buildDeepLinkV2('robinhood', '4663', MAX_TXS, GAS_REFILL_POLICY_MAX_LABEL, FORMAT_MAX_AMOUNT)
+      expect(link.length).toBeGreaterThan(SLACK_BUTTON_URL_LIMIT)
     })
   })
 })
