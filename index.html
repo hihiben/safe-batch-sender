@@ -79,7 +79,11 @@
       .error-list { color: var(--color-error); }
       .success { color: var(--color-success); font-weight: 600; }
       button { font-size: 1rem; padding: 0.5rem 1.2rem; cursor: pointer; color: var(--color-button-text); background-color: var(--color-button-bg); border: 1px solid var(--color-border); border-radius: 4px; }
-      button:disabled { cursor: default; opacity: 0.6; }
+      /* 0.7, not 0.6: the disabled button is also the only place the propose
+         outcome is shown ('Waiting for signature…' / 'Proposed'), and at 0.6 the
+         light palette composites to #717171 on #ececec = 4.13:1, under AA's 4.5.
+         0.7 gives 5.73:1 light / 7.50:1 dark and still reads as dimmed. */
+      button:disabled { cursor: default; opacity: 0.7; }
     </style>
   </head>
   <body>

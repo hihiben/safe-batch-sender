@@ -142,8 +142,10 @@ normal behavior for any non-default Safe App.
 - `index.html`'s CSS is correct with **no signal at all**. `:root` carries the
   palette as custom properties (light by default) plus `color-scheme: light
   dark`, and `@media (prefers-color-scheme: dark)` overrides them for a dark
-  OS/browser. Every element rule pulls both `color` and `background-color`
-  from these properties together — the bug this fixes was `body` setting
+  OS/browser. `body` sets `color` **and** `background-color` together, which is
+  what makes the text-colour-only rules (`.error-title`, `.error-list`,
+  `.success`) safe: they inherit an explicit background rather than a
+  transparent one — the bug this fixes was `body` setting
   `color: #111` with **no `background-color` at all**, so inside Safe's dark
   iframe (which sets no background of its own either) the wallet's near-black
   page showed through and every value rendered dark-grey-on-black.
@@ -174,6 +176,13 @@ normal behavior for any non-default Safe App.
   `prefers-color-scheme` result, with no error and no flicker. The read-only
   path outside Safe never registers this listener at all and relies on the
   CSS alone.
+- **When Safe's theme and the OS theme disagree, expect one visible switch.**
+  The first paint can only use `prefers-color-scheme`; `data-theme` is set
+  later, when the async reply lands. So a light-OS user inside a dark Safe
+  sees the light palette flip to dark once. Both palettes set an explicit
+  foreground *and* background, so no intermediate state is unreadable — but
+  the "no flicker" guarantee above covers only the case where Safe never
+  answers, not this one.
 
 ## Development
 
