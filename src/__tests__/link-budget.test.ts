@@ -1,24 +1,38 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_TXS, encodePayload, type WirePayload } from '../payload.js'
+import { MAX_TXS, SLACK_BUTTON_URL_LIMIT, encodePayload, encodePayloadV2, type BatchInput, type WirePayload } from '../payload.js'
 
 const HOST = 'https://hihiben.github.io/safe-batch-sender/'
 const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
 
-function buildDeepLink(shortName: string, chainId: string, txCount: number): string {
+function addressAt(i: number): string {
+  // 40 distinct-looking hex chars per row so we don't under-count real-world entropy.
+  return `0x${(1000000000000000000000000000000000000000n + BigInt(i)).toString(16).padStart(40, '0')}`
+}
+
+function deepLinkFromFragment(shortName: string, fragment: string): string {
+  const appUrl = `${HOST}#${fragment}`
+  return `https://app.safe.global/apps/open?safe=${shortName}:${SAFE}&appUrl=${encodeURIComponent(appUrl)}`
+}
+
+function buildDeepLinkV1(shortName: string, chainId: string, txCount: number): string {
   const payload: WirePayload = {
     v: 1,
     chainId,
     safe: SAFE,
     label: 'gas refill batch',
-    txs: Array.from({ length: txCount }, (_, i) => [
-      // 40 distinct-looking hex chars per row so we don't under-count real-world entropy.
-      `0x${(1000000000000000000000000000000000000000n + BigInt(i)).toString(16).padStart(40, '0')}`,
-      '500000000000000',
-    ]),
+    txs: Array.from({ length: txCount }, (_, i) => [addressAt(i), '500000000000000']),
   }
-  const fragment = encodePayload(payload)
-  const appUrl = `${HOST}#${fragment}`
-  return `https://app.safe.global/apps/open?safe=${shortName}:${SAFE}&appUrl=${encodeURIComponent(appUrl)}`
+  return deepLinkFromFragment(shortName, encodePayload(payload))
+}
+
+function buildDeepLinkV2(shortName: string, chainId: string, txCount: number, label: string, amountWei: string): string {
+  const input: BatchInput = {
+    chainId,
+    safe: SAFE,
+    label,
+    txs: Array.from({ length: txCount }, (_, i) => [addressAt(i), amountWei]),
+  }
+  return deepLinkFromFragment(shortName, encodePayloadV2(input))
 }
 
 // app.safe.global is served through CloudFront/S3, which rejects any request
@@ -29,21 +43,48 @@ function buildDeepLink(shortName: string, chainId: string, txCount: number): str
 // around 70 rows. Browser cookies eat into the same 8192-byte budget, so the
 // real safe margin for a logged-in user is smaller than what curl measures.
 // 5000 is comfortably below the observed failure point while covering the
-// MAX_TXS=50 cap with room to spare.
-const DEEP_LINK_BUDGET_CHARS = 5000
+// MAX_TXS=50 cap with room to spare. This budget only matters while the v1
+// encoder still exists (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §9, rollout
+// step 9 removes it).
+const V1_DEEP_LINK_BUDGET_CHARS = 5000
+
+// The binding constraint for v2 has moved from CloudFront (8192 bytes) to
+// Slack's Block Kit button `url` field (SLACK_BUTTON_URL_LIMIT = 3000 chars,
+// see PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §6/§11) — v2's binary packing
+// keeps every realistic payload roughly 2-3x under the old CloudFront ceiling,
+// so Slack's much smaller limit is reached first. 2,600 is a regression
+// budget with headroom below that hard limit, checked separately from the
+// hard limit itself so a failure names which wall was hit.
+const V2_REGRESSION_BUDGET_CHARS = 2600
+const POLICY_WORST_LABEL = 'x'.repeat(64) // MAX_LABEL_BYTES, all-ASCII so 1 byte/char
+const POLICY_WORST_AMOUNT = (1n << 79n).toString() // minimal encoding is exactly 10 bytes
 
 describe('deep link length budget', () => {
-  it(`stays under the ${DEEP_LINK_BUDGET_CHARS}-char budget at the observed max batch size (41 rows, base chain)`, () => {
-    const link = buildDeepLink('base', '8453', 41)
-    expect(link.length).toBeLessThan(DEEP_LINK_BUDGET_CHARS)
+  describe('v1', () => {
+    it(`stays under the ${V1_DEEP_LINK_BUDGET_CHARS}-char budget at the observed max batch size (41 rows, base chain)`, () => {
+      const link = buildDeepLinkV1('base', '8453', 41)
+      expect(link.length).toBeLessThan(V1_DEEP_LINK_BUDGET_CHARS)
+    })
+
+    it(`stays under the ${V1_DEEP_LINK_BUDGET_CHARS}-char budget at MAX_TXS (${MAX_TXS} rows, base chain)`, () => {
+      const link = buildDeepLinkV1('base', '8453', MAX_TXS)
+      expect(link.length).toBeLessThan(V1_DEEP_LINK_BUDGET_CHARS)
+    })
+
+    it('scales roughly linearly and 10 rows is smaller than 41 rows', () => {
+      expect(buildDeepLinkV1('base', '8453', 10).length).toBeLessThan(buildDeepLinkV1('base', '8453', 41).length)
+    })
   })
 
-  it(`stays under the ${DEEP_LINK_BUDGET_CHARS}-char budget at MAX_TXS (${MAX_TXS} rows, base chain)`, () => {
-    const link = buildDeepLink('base', '8453', MAX_TXS)
-    expect(link.length).toBeLessThan(DEEP_LINK_BUDGET_CHARS)
-  })
+  describe('v2', () => {
+    const worstCaseLink = () => buildDeepLinkV2('robinhood', '4663', MAX_TXS, POLICY_WORST_LABEL, POLICY_WORST_AMOUNT)
 
-  it('scales roughly linearly and 10 rows is smaller than 41 rows', () => {
-    expect(buildDeepLink('base', '8453', 10).length).toBeLessThan(buildDeepLink('base', '8453', 41).length)
+    it(`policy worst case (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under the ${V2_REGRESSION_BUDGET_CHARS}-char regression budget`, () => {
+      expect(worstCaseLink().length).toBeLessThan(V2_REGRESSION_BUDGET_CHARS)
+    })
+
+    it(`policy worst case (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under Slack's ${SLACK_BUTTON_URL_LIMIT}-char button url limit`, () => {
+      expect(worstCaseLink().length).toBeLessThan(SLACK_BUTTON_URL_LIMIT)
+    })
   })
 })

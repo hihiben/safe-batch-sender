@@ -13,6 +13,13 @@ export type PayloadErrorCode =
   | 'UNSUPPORTED_TOKEN'
   | 'INVALID_TX_ADDRESS'
   | 'INVALID_TX_AMOUNT'
+  // v2 (binary wire format) additions — see PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §3.
+  | 'FRAGMENT_TOO_LONG'
+  | 'UNRECOGNIZED_FORMAT'
+  | 'TRUNCATED_PAYLOAD'
+  | 'TRAILING_BYTES'
+  | 'INVALID_CHAIN_ID'
+  | 'MALFORMED_LABEL'
 
 export interface PayloadError {
   code: PayloadErrorCode
@@ -26,7 +33,7 @@ export interface NormalizedTx {
 }
 
 export interface BatchPayload {
-  v: 1
+  v: 1 | 2
   chainId: string
   safe: string
   label: string
@@ -58,6 +65,34 @@ export interface WirePayload {
   label: string
   txs: WireTx[]
 }
+
+/**
+ * v2 (binary wire format) input for encodePayloadV2. Same decimal-string
+ * convention as WireTx for chainId/amountWei — only the wire encoding differs,
+ * not what callers pass in. See PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1.
+ */
+export interface BatchInput {
+  chainId: string
+  safe: string
+  label: string
+  txs: WireTx[]
+}
+
+/**
+ * v2 wire-format constants, identical on both the TS side and the Apps Script
+ * hand port (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1). MAX_TXS above is
+ * shared with v1 and unchanged.
+ */
+const V2_MARKER = 0x02
+/** Encoder-only rule (link budget, not a decode rule) — labelLen itself allows 0..255. */
+export const MAX_LABEL_BYTES = 64
+export const MAX_CHAIN_ID_BYTES = 8
+/** uint256 ceiling for a Safe tx `value`. */
+export const MAX_AMOUNT_BYTES = 32
+/** Pre-decode guard, checked before base64 decoding, both versions. */
+export const MAX_FRAGMENT_CHARS = 16384
+/** Slack Block Kit button `url` field hard limit. */
+export const SLACK_BUTTON_URL_LIMIT = 3000
 
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/
 
@@ -93,6 +128,35 @@ function base64UrlEncode(bytes: Uint8Array): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex
+  const bytes = new Uint8Array(clean.length / 2)
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16)
+  return bytes
+}
+
+function bytesToHex(bytes: Uint8Array): `0x${string}` {
+  let hex = '0x'
+  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0')
+  return hex as `0x${string}`
+}
+
+function bytesToBigInt(bytes: Uint8Array): bigint {
+  return BigInt(bytesToHex(bytes))
+}
+
+/**
+ * Minimal (no leading zero byte) unsigned big-endian encoding of a positive
+ * bigint. `value` must be > 0n — callers validate that first via
+ * isPositiveIntegerString, so `value.toString(16)` never starts with a zero
+ * nibble pair here.
+ */
+function bigIntToMinimalBytes(value: bigint): Uint8Array {
+  let hex = value.toString(16)
+  if (hex.length % 2 !== 0) hex = '0' + hex
+  return hexToBytes(hex)
 }
 
 function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError> {
@@ -154,29 +218,251 @@ function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError> {
   }
 }
 
+/**
+ * v2 binary decoder (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1/§3). `bytes[0]`
+ * is the V2_MARKER already checked by the decodePayload dispatcher; decoding
+ * proper starts at offset 1.
+ *
+ * Unlike validateWirePayload above (which accumulates every violation it
+ * finds), this stops at the FIRST violation and returns a single-element
+ * errors array: past a structural violation every subsequent offset is
+ * derived from bytes already declared untrustworthy, so there is nothing
+ * trustworthy left to keep checking.
+ */
+function decodeV2(bytes: Uint8Array): Result<BatchPayload, PayloadError> {
+  let offset = 1 // skip the marker byte
+
+  function fail(code: PayloadErrorCode, message: string): Result<BatchPayload, PayloadError> {
+    return { ok: false, errors: [{ code, message }] }
+  }
+
+  function readByte(): number | undefined {
+    if (offset + 1 > bytes.length) return undefined
+    return bytes[offset++]
+  }
+
+  function readBytes(len: number): Uint8Array | undefined {
+    if (offset + len > bytes.length) return undefined
+    const slice = bytes.subarray(offset, offset + len)
+    offset += len
+    return slice
+  }
+
+  const chainIdLenOffset = offset
+  const chainIdLen = readByte()
+  if (chainIdLen === undefined) {
+    return fail('TRUNCATED_PAYLOAD', `Truncated payload: missing chainIdLen at offset ${chainIdLenOffset}`)
+  }
+  if (chainIdLen === 0 || chainIdLen > MAX_CHAIN_ID_BYTES) {
+    return fail('INVALID_CHAIN_ID', `Invalid chainId length ${chainIdLen} at offset ${chainIdLenOffset}: must be 1..${MAX_CHAIN_ID_BYTES}`)
+  }
+
+  const chainIdOffset = offset
+  const chainIdBytes = readBytes(chainIdLen)
+  if (chainIdBytes === undefined) {
+    return fail('TRUNCATED_PAYLOAD', `Truncated payload: expected ${chainIdLen} byte(s) for chainId at offset ${chainIdOffset}`)
+  }
+  if (chainIdBytes[0] === 0x00) {
+    return fail('INVALID_CHAIN_ID', `Invalid chainId at offset ${chainIdOffset}: leading zero byte (not minimally encoded)`)
+  }
+  const chainId = bytesToBigInt(chainIdBytes).toString()
+
+  const safeOffset = offset
+  const safeBytes = readBytes(20)
+  if (safeBytes === undefined) {
+    return fail('TRUNCATED_PAYLOAD', `Truncated payload: expected 20 byte(s) for safe at offset ${safeOffset}`)
+  }
+  const safe = getAddress(bytesToHex(safeBytes))
+
+  const labelLenOffset = offset
+  const labelLen = readByte()
+  if (labelLen === undefined) {
+    return fail('TRUNCATED_PAYLOAD', `Truncated payload: missing labelLen at offset ${labelLenOffset}`)
+  }
+
+  const labelOffset = offset
+  const labelBytes = readBytes(labelLen)
+  if (labelBytes === undefined) {
+    return fail('TRUNCATED_PAYLOAD', `Truncated payload: expected ${labelLen} byte(s) for label at offset ${labelOffset}`)
+  }
+  let label: string
+  try {
+    label = new TextDecoder('utf-8', { fatal: true }).decode(labelBytes)
+  } catch {
+    return fail('MALFORMED_LABEL', `Malformed label: bytes at offset ${labelOffset} are not valid UTF-8`)
+  }
+
+  const nOffset = offset
+  const n = readByte()
+  if (n === undefined) {
+    return fail('TRUNCATED_PAYLOAD', `Truncated payload: missing n at offset ${nOffset}`)
+  }
+  if (n === 0) {
+    return fail('EMPTY_TXS', 'txs must be a non-empty array')
+  }
+  if (n > MAX_TXS) {
+    return fail('TOO_MANY_TXS', `txs has ${n} entries, which exceeds the limit of ${MAX_TXS}`)
+  }
+
+  const txs: NormalizedTx[] = []
+  for (let index = 0; index < n; index++) {
+    const toOffset = offset
+    const toBytes = readBytes(20)
+    if (toBytes === undefined) {
+      return fail('TRUNCATED_PAYLOAD', `Truncated payload: expected 20 byte(s) for txs[${index}].to at offset ${toOffset}`)
+    }
+    const to = getAddress(bytesToHex(toBytes))
+
+    const amountLenOffset = offset
+    const amountLen = readByte()
+    if (amountLen === undefined) {
+      return fail('TRUNCATED_PAYLOAD', `Truncated payload: missing amountLen for txs[${index}] at offset ${amountLenOffset}`)
+    }
+    if (amountLen === 0 || amountLen > MAX_AMOUNT_BYTES) {
+      return fail('INVALID_TX_AMOUNT', `txs[${index}] has an invalid amount length ${amountLen} at offset ${amountLenOffset}: must be 1..${MAX_AMOUNT_BYTES}`)
+    }
+
+    const amountOffset = offset
+    const amountBytes = readBytes(amountLen)
+    if (amountBytes === undefined) {
+      return fail('TRUNCATED_PAYLOAD', `Truncated payload: expected ${amountLen} byte(s) for txs[${index}].amount at offset ${amountOffset}`)
+    }
+    if (amountBytes[0] === 0x00) {
+      return fail('INVALID_TX_AMOUNT', `txs[${index}] has an invalid amount at offset ${amountOffset}: leading zero byte (not minimally encoded)`)
+    }
+
+    txs.push({ to, amountWei: bytesToBigInt(amountBytes).toString() })
+  }
+
+  if (offset !== bytes.length) {
+    return fail('TRAILING_BYTES', `Trailing bytes: ${bytes.length - offset} byte(s) remain after offset ${offset}`)
+  }
+
+  return { ok: true, value: { v: 2, chainId, safe, label, txs } }
+}
+
 export function decodePayload(fragment: string): Result<BatchPayload, PayloadError> {
   const trimmed = fragment.startsWith('#') ? fragment.slice(1) : fragment
   if (trimmed.length === 0) {
     return { ok: false, errors: [{ code: 'MALFORMED_BASE64', message: 'Payload fragment is empty' }] }
   }
+  if (trimmed.length > MAX_FRAGMENT_CHARS) {
+    return {
+      ok: false,
+      errors: [{ code: 'FRAGMENT_TOO_LONG', message: `Fragment is ${trimmed.length} characters, which exceeds the limit of ${MAX_FRAGMENT_CHARS}` }],
+    }
+  }
 
-  let json: string
+  let bytes: Uint8Array
   try {
-    json = new TextDecoder('utf-8', { fatal: true }).decode(base64UrlDecode(trimmed))
+    bytes = base64UrlDecode(trimmed)
   } catch {
     return { ok: false, errors: [{ code: 'MALFORMED_BASE64', message: 'Fragment is not valid base64url' }] }
   }
 
-  let raw: unknown
-  try {
-    raw = JSON.parse(json)
-  } catch {
-    return { ok: false, errors: [{ code: 'MALFORMED_JSON', message: 'Payload is not valid JSON' }] }
+  // Version dispatch on the first decoded byte (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md
+  // §2). Both v1 encoders emit JSON.stringify output, which never starts with
+  // whitespace, so a v1 fragment's first byte is always 0x7B ('{'). Binary markers
+  // are permanently reserved to 0x01..0x1F, none of which can begin UTF-8 JSON.
+  const marker = bytes[0]
+
+  if (marker === 0x7b) {
+    // v1 path, byte-for-byte unchanged from before the dispatcher existed.
+    let json: string
+    try {
+      json = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    } catch {
+      return { ok: false, errors: [{ code: 'MALFORMED_BASE64', message: 'Fragment is not valid base64url' }] }
+    }
+
+    let raw: unknown
+    try {
+      raw = JSON.parse(json)
+    } catch {
+      return { ok: false, errors: [{ code: 'MALFORMED_JSON', message: 'Payload is not valid JSON' }] }
+    }
+
+    return validateWirePayload(raw)
   }
 
-  return validateWirePayload(raw)
+  if (marker === V2_MARKER) {
+    return decodeV2(bytes)
+  }
+
+  if (marker !== undefined && marker >= 0x01 && marker <= 0x1f) {
+    return {
+      ok: false,
+      errors: [{ code: 'UNSUPPORTED_VERSION', message: `Unsupported payload version marker: 0x${marker.toString(16).padStart(2, '0')}` }],
+    }
+  }
+
+  return {
+    ok: false,
+    errors: [
+      {
+        code: 'UNRECOGNIZED_FORMAT',
+        message: marker === undefined ? 'Unrecognized payload format: fragment decoded to zero bytes' : `Unrecognized payload format: first byte 0x${marker.toString(16).padStart(2, '0')}`,
+      },
+    ],
+  }
 }
 
 export function encodePayload(payload: WirePayload): string {
   return base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)))
+}
+
+/**
+ * v2 binary encoder (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1). Throws on any
+ * invalid input rather than returning a Result — including a mixed-case
+ * address that fails EIP-55, which the wire format has no other way to catch
+ * once addresses become raw bytes (decodeV2 above cannot tell a mistyped
+ * checksum from a correct one; the encoder is the last checkpoint).
+ */
+export function encodePayloadV2(input: BatchInput): string {
+  if (!isPositiveIntegerString(input.chainId)) {
+    throw new Error(`Invalid chainId: ${JSON.stringify(input.chainId)}`)
+  }
+  const chainIdBytes = bigIntToMinimalBytes(BigInt(input.chainId))
+  if (chainIdBytes.length > MAX_CHAIN_ID_BYTES) {
+    throw new Error(`chainId ${input.chainId} needs ${chainIdBytes.length} bytes, which exceeds the limit of ${MAX_CHAIN_ID_BYTES}`)
+  }
+
+  const safe = normalizeAddress(input.safe)
+  if (!safe) {
+    throw new Error(`Invalid safe address: ${JSON.stringify(input.safe)}`)
+  }
+
+  const labelBytes = new TextEncoder().encode(input.label)
+  if (labelBytes.length > MAX_LABEL_BYTES) {
+    throw new Error(`Label is ${labelBytes.length} bytes, which exceeds the limit of ${MAX_LABEL_BYTES}`)
+  }
+
+  if (!Array.isArray(input.txs) || input.txs.length === 0) {
+    throw new Error('txs must be a non-empty array')
+  }
+  if (input.txs.length > MAX_TXS) {
+    throw new Error(`txs has ${input.txs.length} entries, which exceeds the limit of ${MAX_TXS}`)
+  }
+
+  const rows = input.txs.map(([rawTo, rawAmount], index) => {
+    const to = normalizeAddress(rawTo)
+    if (!to) throw new Error(`txs[${index}] has an invalid recipient address: ${JSON.stringify(rawTo)}`)
+
+    if (!isPositiveIntegerString(rawAmount)) {
+      throw new Error(`txs[${index}] has an invalid amount: ${JSON.stringify(rawAmount)}`)
+    }
+    const amountBytes = bigIntToMinimalBytes(BigInt(rawAmount))
+    if (amountBytes.length > MAX_AMOUNT_BYTES) {
+      throw new Error(`txs[${index}] amount needs ${amountBytes.length} bytes, which exceeds the limit of ${MAX_AMOUNT_BYTES}`)
+    }
+
+    return { toBytes: hexToBytes(to), amountBytes }
+  })
+
+  const parts: number[] = [V2_MARKER, chainIdBytes.length, ...chainIdBytes, ...hexToBytes(safe), labelBytes.length, ...labelBytes, rows.length]
+  for (const row of rows) {
+    parts.push(...row.toBytes, row.amountBytes.length, ...row.amountBytes)
+  }
+
+  return base64UrlEncode(Uint8Array.from(parts))
 }
