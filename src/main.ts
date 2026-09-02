@@ -4,6 +4,7 @@ import { decodePayload } from './payload.js'
 import { prepare, type PreparedTx } from './prepare.js'
 import { renderErrors, renderLoading, renderNoPayload, renderPreview, renderProposeError, renderProposeSuccess, type PreviewHandle } from './render.js'
 import { createSdk, getSafeContext, isInIframe, proposeBatch } from './safe.js'
+import { startThemeSync } from './theme.js'
 
 function requireApp(): HTMLElement {
   const app = document.getElementById('app')
@@ -32,6 +33,14 @@ export async function handlePropose(sdk: SafeAppsSDK, txs: PreparedTx[], handle:
 
 export async function run(): Promise<void> {
   const root = requireApp()
+  // As early as possible on the in-iframe path — before parsing the fragment
+  // and before any awaited SDK call — so every screen shown inside Safe (not
+  // just the preview) picks up Safe's theme instead of only the CSS's own
+  // prefers-color-scheme fallback. No-op (and no listener registered) outside
+  // an iframe: there's no Safe to ask, and the CSS fallback alone is correct.
+  const inIframe = isInIframe()
+  if (inIframe) startThemeSync()
+
   const fragment = window.location.hash
   if (!fragment) {
     renderNoPayload(root)
@@ -49,7 +58,7 @@ export async function run(): Promise<void> {
   }
   const payload = decoded.value
 
-  if (!isInIframe()) {
+  if (!inIframe) {
     // No live Safe to compare against outside the iframe — the payload's own
     // chainId/safe stand in as the "context" purely to drive the read-only preview.
     const chainInfo = getChainInfo(payload.chainId)

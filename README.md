@@ -132,6 +132,49 @@ is stored in `localStorage` per chain + origin, so it's a one-time click per
 chain per browser (6 clicks total across all chains) — not a bug, just Safe's
 normal behavior for any non-default Safe App.
 
+## Theme (dark mode inside Safe{Wallet})
+
+- `@safe-global/safe-apps-sdk@9.1.0` has **no official theme API**: `Methods`
+  (`node_modules/@safe-global/safe-apps-sdk/dist/types/communication/methods.d.ts`)
+  has no theme-related member, and `EnvironmentInfo` is just `{ origin: string }`
+  — confirmed by grepping the installed package for
+  `darkMode|getCurrentTheme|prefers-color-scheme` (nothing).
+- `index.html`'s CSS is correct with **no signal at all**. `:root` carries the
+  palette as custom properties (light by default) plus `color-scheme: light
+  dark`, and `@media (prefers-color-scheme: dark)` overrides them for a dark
+  OS/browser. Every element rule pulls both `color` and `background-color`
+  from these properties together — the bug this fixes was `body` setting
+  `color: #111` with **no `background-color` at all**, so inside Safe's dark
+  iframe (which sets no background of its own either) the wallet's near-black
+  page showed through and every value rendered dark-grey-on-black.
+- `src/theme.ts` layers an **unofficial, best-effort** signal on top.
+  Safe{Wallet} answers a raw postMessage method, `getCurrentTheme` →
+  `{ darkMode: boolean }`, that isn't part of the SDK's `Methods` enum. See
+  `safe-global/safe-wallet-monorepo` (branch `dev`):
+  `apps/web/src/components/safe-apps/AppFrame/useAppCommunicator.ts` (the
+  handler is marked `// TODO: it will be moved to safe-apps-sdk soon`, and
+  there's a separate unsolicited push there that fires whenever the user
+  toggles Safe's own theme) and
+  `apps/web/src/services/safe-apps/AppCommunicator.ts` (`isValidMessage`
+  explicitly whitelists `'getCurrentTheme'` even though it's outside the
+  `Methods` enum). `startThemeSync()` sends the request through the SDK's own
+  `MessageFormatter.makeRequest`, targeting `window.parent` at the explicit
+  origin `https://app.safe.global` (never `'*'`), and only accepts a reply
+  matching `{ data: { darkMode: boolean } }` from that exact origin. A valid
+  reply sets `document.documentElement.dataset.theme`, which
+  `:root[data-theme]` in `index.html` outranks `prefers-color-scheme` for
+  (higher CSS specificity) — so an explicit Safe theme wins over the OS
+  preference in both directions. It's called only on the in-iframe path, as
+  early as possible (before the awaited `getSafeContext` call), so every
+  screen — loading, error, and preview alike — picks it up, not just the
+  preview table.
+- This channel is unofficial and carries a `TODO` upstream: it may change or
+  disappear without notice. It is **pure progressive enhancement** — if it
+  never answers, or Safe removes it outright, the app renders exactly the
+  `prefers-color-scheme` result, with no error and no flicker. The read-only
+  path outside Safe never registers this listener at all and relies on the
+  CSS alone.
+
 ## Development
 
 ```sh

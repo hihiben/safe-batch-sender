@@ -5,16 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Safe Batch Sender</title>
     <style>
-      body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
+      /*
+       * Theme: light values live directly on :root; @media (prefers-color-scheme)
+       * overrides them for a dark OS/browser with no signal from Safe at all.
+       * :root[data-theme] (set by src/theme.ts once Safe answers getCurrentTheme,
+       * see README) overrides both — an attribute selector on :root always
+       * outranks a bare :root selector (0,2,0 vs 0,1,0 specificity), so the
+       * explicit Safe signal wins over prefers-color-scheme in both directions
+       * regardless of source order. Every element rule below pulls color and
+       * background-color from this same set of variables, so the two always
+       * change together — no rule sets one and lets the other inherit stale.
+       */
+      :root {
+        color-scheme: light dark;
+        --color-bg: #ffffff;
+        --color-text: #121312;
+        --color-border: #dcdee0;
+        --color-notice-bg: #fff8e1;
+        --color-notice-text: #7a5b00;
+        --color-error: #b00020;
+        --color-success: #1b5e20;
+        --color-button-bg: #e0e0e0;
+        --color-button-text: #121312;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --color-bg: #121312;
+          --color-text: #ffffff;
+          --color-border: #303033;
+          --color-notice-bg: #3a2f00;
+          --color-notice-text: #ffcf66;
+          --color-error: #ff6679;
+          --color-success: #6fcf7d;
+          --color-button-bg: #303033;
+          --color-button-text: #ffffff;
+        }
+      }
+
+      :root[data-theme='light'] {
+        color-scheme: light;
+        --color-bg: #ffffff;
+        --color-text: #121312;
+        --color-border: #dcdee0;
+        --color-notice-bg: #fff8e1;
+        --color-notice-text: #7a5b00;
+        --color-error: #b00020;
+        --color-success: #1b5e20;
+        --color-button-bg: #e0e0e0;
+        --color-button-text: #121312;
+      }
+
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --color-bg: #121312;
+        --color-text: #ffffff;
+        --color-border: #303033;
+        --color-notice-bg: #3a2f00;
+        --color-notice-text: #ffcf66;
+        --color-error: #ff6679;
+        --color-success: #6fcf7d;
+        --color-button-bg: #303033;
+        --color-button-text: #ffffff;
+      }
+
+      body { font-family: system-ui, sans-serif; margin: 2rem; color: var(--color-text); background-color: var(--color-bg); }
       table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-      th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }
+      th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--color-border); }
       td.address { font-family: ui-monospace, monospace; }
       .summary { font-weight: 600; }
-      .notice { color: #7a5b00; background: #fff8e1; padding: 0.6rem; border-radius: 4px; }
-      .error-title { color: #b00020; font-weight: 600; }
-      .error-list { color: #b00020; }
-      .success { color: #1b5e20; font-weight: 600; }
-      button { font-size: 1rem; padding: 0.5rem 1.2rem; cursor: pointer; }
+      .notice { color: var(--color-notice-text); background: var(--color-notice-bg); padding: 0.6rem; border-radius: 4px; }
+      .error-title { color: var(--color-error); font-weight: 600; }
+      .error-list { color: var(--color-error); }
+      .success { color: var(--color-success); font-weight: 600; }
+      button { font-size: 1rem; padding: 0.5rem 1.2rem; cursor: pointer; color: var(--color-button-text); background-color: var(--color-button-bg); border: 1px solid var(--color-border); border-radius: 4px; }
       button:disabled { cursor: default; opacity: 0.6; }
     </style>
   </head>
