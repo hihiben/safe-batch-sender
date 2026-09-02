@@ -44,13 +44,13 @@ function buildDeepLinkV2(shortName: string, chainId: string, txCount: number, la
 // real safe margin for a logged-in user is smaller than what curl measures.
 // 5000 is comfortably below the observed failure point while covering the
 // MAX_TXS=50 cap with room to spare. This budget only matters while the v1
-// encoder still exists (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §9, rollout
+// encoder still exists (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §9, rollout
 // step 9 removes it).
 const V1_DEEP_LINK_BUDGET_CHARS = 5000
 
 // The binding constraint for v2 has moved from CloudFront (8192 bytes) to
 // Slack's Block Kit button `url` field (SLACK_BUTTON_URL_LIMIT = 3000 chars,
-// see PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §6/§11) — v2's binary packing
+// see SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §6/§11) — v2's binary packing
 // keeps every realistic payload roughly 2-3x under the old CloudFront ceiling,
 // so Slack's much smaller limit is reached first. 2,600 is a regression
 // budget with headroom below that hard limit, checked separately from the

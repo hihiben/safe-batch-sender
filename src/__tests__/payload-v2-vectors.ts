@@ -1,5 +1,5 @@
 // Frozen golden vectors for the v2 binary wire format, copied verbatim from
-// PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §4. Do not edit `fragment` or `hex`
+// SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §4. Do not edit `fragment` or `hex`
 // without re-approving the spec — this module is the contract document Ben's
 // hand-written Apps Script port is checked against.
 //

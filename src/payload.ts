@@ -13,7 +13,7 @@ export type PayloadErrorCode =
   | 'UNSUPPORTED_TOKEN'
   | 'INVALID_TX_ADDRESS'
   | 'INVALID_TX_AMOUNT'
-  // v2 (binary wire format) additions — see PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §3.
+  // v2 (binary wire format) additions — see SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §3.
   | 'FRAGMENT_TOO_LONG'
   | 'UNRECOGNIZED_FORMAT'
   | 'TRUNCATED_PAYLOAD'
@@ -69,7 +69,7 @@ export interface WirePayload {
 /**
  * v2 (binary wire format) input for encodePayloadV2. Same decimal-string
  * convention as WireTx for chainId/amountWei — only the wire encoding differs,
- * not what callers pass in. See PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1.
+ * not what callers pass in. See SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §1.
  */
 export interface BatchInput {
   chainId: string
@@ -80,7 +80,7 @@ export interface BatchInput {
 
 /**
  * v2 wire-format constants, identical on both the TS side and the Apps Script
- * hand port (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1). MAX_TXS above is
+ * hand port (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §1). MAX_TXS above is
  * shared with v1 and unchanged.
  */
 const V2_MARKER = 0x02
@@ -119,8 +119,10 @@ function hasLoneSurrogate(value: string): boolean {
   for (let i = 0; i < value.length; i++) {
     const codeUnit = value.charCodeAt(i)
     if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      // charCodeAt past the end is NaN, and NaN fails both comparisons — without the
+      // explicit check a high surrogate as the final code unit slips through.
       const next = value.charCodeAt(i + 1)
-      if (next < 0xdc00 || next > 0xdfff) return true
+      if (Number.isNaN(next) || next < 0xdc00 || next > 0xdfff) return true
       i++
     } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
       return true
@@ -233,7 +235,7 @@ function validateWirePayload(raw: unknown): Result<BatchPayload, PayloadError> {
 }
 
 /**
- * v2 binary decoder (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1/§3). `bytes[0]`
+ * v2 binary decoder (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §1/§3). `bytes[0]`
  * is the V2_MARKER already checked by the decodePayload dispatcher; decoding
  * proper starts at offset 1.
  *
@@ -374,7 +376,7 @@ export function decodePayload(fragment: string): Result<BatchPayload, PayloadErr
     return { ok: false, errors: [{ code: 'MALFORMED_BASE64', message: 'Fragment is not valid base64url' }] }
   }
 
-  // Version dispatch on the first decoded byte (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md
+  // Version dispatch on the first decoded byte (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace)
   // §2). Both v1 encoders emit JSON.stringify output, which never starts with
   // whitespace, so a v1 fragment's first byte is always 0x7B ('{'). Binary markers
   // are permanently reserved to 0x01..0x1F, none of which can begin UTF-8 JSON.
@@ -432,7 +434,7 @@ export function encodePayload(payload: WirePayload): string {
 }
 
 /**
- * v2 binary encoder (PLANS/SAFE_BATCH_SENDER_PAYLOAD_V2.md §1). Throws on any
+ * v2 binary encoder (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §1). Throws on any
  * invalid input rather than returning a Result — including a mixed-case
  * address that fails EIP-55, which the wire format has no other way to catch
  * once addresses become raw bytes (decodeV2 above cannot tell a mistyped
