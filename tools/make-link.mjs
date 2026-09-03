@@ -4,20 +4,26 @@
 // wire format to drift out of sync.
 //
 // Usage:
-//   node tools/make-link.mjs --chain robinhood --label "gas refill" rows.json
-//   node tools/make-link.mjs --chain robinhood --format v2 --label "gas refill" rows.json
+//   node tools/make-link.mjs --chain <chain> --safe <0xSafe> --label "..." rows.json
+//   node tools/make-link.mjs --chain <chain> --safe <0xSafe> --format v2 --label "..." rows.json
 //
 // rows.json: [["0xRecipient...", "500000000000000"], ...]
 
 import { readFileSync } from 'node:fs'
-import { SLACK_BUTTON_URL_LIMIT, encodePayload, encodePayloadV2 } from '../src/payload.ts'
+import { encodePayload, encodePayloadV2 } from '../src/payload.ts'
 import { CHAINS } from '../src/chains.ts'
 
 const APP_HOST = 'https://hihiben.github.io/safe-batch-sender/'
-const DEFAULT_SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
+
+// A link is only useful if whatever carries it will accept the whole string, and the
+// tightest carrier we post links through is a Slack Block Kit button, whose `url` field
+// is capped at 3000 characters. That is a property of the consumer, not of the wire
+// format, so it lives here rather than in src/payload.ts — point this at your own
+// carrier's limit if you publish links some other way.
+const MAX_LINK_CHARS = 3000
 
 function parseArgs(argv) {
-  const args = { chain: undefined, safe: DEFAULT_SAFE, label: '', file: undefined, format: 'v1' }
+  const args = { chain: undefined, safe: undefined, label: '', file: undefined, format: 'v1' }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--chain') args.chain = argv[++i]
@@ -28,6 +34,7 @@ function parseArgs(argv) {
     else throw new Error(`Unknown argument: ${arg}`)
   }
   if (!args.chain) throw new Error('--chain is required (chainId or shortName, e.g. "robinhood" or "4663")')
+  if (!args.safe) throw new Error('--safe is required (the Safe address the batch will be proposed to)')
   if (!args.file) throw new Error('Path to a rows JSON file is required')
   if (args.format !== 'v1' && args.format !== 'v2') throw new Error(`--format must be "v1" or "v2", got "${args.format}"`)
   return args
@@ -56,8 +63,8 @@ function main() {
 
   const appUrl = `${APP_HOST}#${fragment}`
   const link = `https://app.safe.global/apps/open?safe=${chain.shortName}:${args.safe}&appUrl=${encodeURIComponent(appUrl)}`
-  if (link.length > SLACK_BUTTON_URL_LIMIT) {
-    throw new Error(`Link is ${link.length} characters, which exceeds the Slack button url limit of ${SLACK_BUTTON_URL_LIMIT}`)
+  if (link.length > MAX_LINK_CHARS) {
+    throw new Error(`Link is ${link.length} characters, which exceeds the ${MAX_LINK_CHARS}-char limit of the carrier this tool targets`)
   }
   console.log(link)
 }

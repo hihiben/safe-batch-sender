@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_TXS, SLACK_BUTTON_URL_LIMIT, encodePayload, encodePayloadV2, type BatchInput, type WirePayload } from '../payload.js'
+import { MAX_TXS, encodePayload, encodePayloadV2, type BatchInput, type WirePayload } from '../payload.js'
 
 const HOST = 'https://hihiben.github.io/safe-batch-sender/'
 const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
@@ -48,18 +48,20 @@ function buildDeepLinkV2(shortName: string, chainId: string, txCount: number, la
 // step 9 removes it).
 const V1_DEEP_LINK_BUDGET_CHARS = 5000
 
-// The binding constraint for v2 has moved from CloudFront (8192 bytes) to
-// Slack's Block Kit button `url` field (SLACK_BUTTON_URL_LIMIT = 3000 chars,
-// see SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §6/§11) — v2's binary packing
-// keeps every realistic payload roughly 2-3x under the old CloudFront ceiling,
-// so Slack's much smaller limit is reached first. 2,600 is a regression
-// budget with headroom below that hard limit, checked separately from the
-// hard limit itself so a failure names which wall was hit.
+// Once v2 packs the payload, CloudFront's 8192-byte ceiling stops being the binding
+// constraint: whatever carries the link is now tighter. The tightest carrier we publish
+// through is a Slack Block Kit button, whose `url` field is capped at 3000 characters,
+// and tools/make-link.mjs enforces that as MAX_LINK_CHARS. The literal is repeated here
+// on purpose — this test guards an external constraint, so it should fail if the number
+// changes, not silently follow it. 2,600 is a regression budget with headroom below it,
+// checked separately from the hard limit so a failure names which wall was hit.
 const V2_REGRESSION_BUDGET_CHARS = 2600
-// The gas-refill generator policy is documented in SAFE_BATCH_SENDER_PAYLOAD_V2.md
-// §6 as amounts <= 10 bytes. This is a consumer policy, not the v2 format maximum.
-const GAS_REFILL_POLICY_MAX_LABEL = 'x'.repeat(64) // MAX_LABEL_BYTES, all-ASCII so 1 byte/char
-const GAS_REFILL_POLICY_MAX_AMOUNT = (1n << 79n).toString() // minimal encoding is exactly 10 bytes
+const CARRIER_LINK_LIMIT_CHARS = 3000
+// One generator's policy, not a format rule: the gas top-up generator never emits an
+// amount wider than 10 bytes. Kept as a named example of a realistic upper bound, and
+// contrasted below with what the format itself allows.
+const GENERATOR_POLICY_MAX_LABEL = 'x'.repeat(64) // MAX_LABEL_BYTES, all-ASCII so 1 byte/char
+const GENERATOR_POLICY_MAX_AMOUNT = (1n << 79n).toString() // minimal encoding is exactly 10 bytes
 const FORMAT_MAX_AMOUNT = (2n ** 256n - 1n).toString() // MAX_AMOUNT_BYTES = 32
 
 describe('deep link length budget', () => {
@@ -80,19 +82,19 @@ describe('deep link length budget', () => {
   })
 
   describe('v2', () => {
-    const gasRefillPolicyMaxLink = () => buildDeepLinkV2('robinhood', '4663', MAX_TXS, GAS_REFILL_POLICY_MAX_LABEL, GAS_REFILL_POLICY_MAX_AMOUNT)
+    const generatorPolicyMaxLink = () => buildDeepLinkV2('robinhood', '4663', MAX_TXS, GENERATOR_POLICY_MAX_LABEL, GENERATOR_POLICY_MAX_AMOUNT)
 
-    it(`gas-refill policy maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under the ${V2_REGRESSION_BUDGET_CHARS}-char regression budget`, () => {
-      expect(gasRefillPolicyMaxLink().length).toBeLessThan(V2_REGRESSION_BUDGET_CHARS)
+    it(`generator policy maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under the ${V2_REGRESSION_BUDGET_CHARS}-char regression budget`, () => {
+      expect(generatorPolicyMaxLink().length).toBeLessThan(V2_REGRESSION_BUDGET_CHARS)
     })
 
-    it(`gas-refill policy maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under Slack's ${SLACK_BUTTON_URL_LIMIT}-char button url limit`, () => {
-      expect(gasRefillPolicyMaxLink().length).toBeLessThan(SLACK_BUTTON_URL_LIMIT)
+    it(`generator policy maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 10-byte amounts) stays under the ${CARRIER_LINK_LIMIT_CHARS}-char carrier limit`, () => {
+      expect(generatorPolicyMaxLink().length).toBeLessThan(CARRIER_LINK_LIMIT_CHARS)
     })
 
-    it(`format maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 32-byte amounts) exceeds Slack's ${SLACK_BUTTON_URL_LIMIT}-char button url limit`, () => {
-      const link = buildDeepLinkV2('robinhood', '4663', MAX_TXS, GAS_REFILL_POLICY_MAX_LABEL, FORMAT_MAX_AMOUNT)
-      expect(link.length).toBeGreaterThan(SLACK_BUTTON_URL_LIMIT)
+    it(`format maximum (robinhood, 64-byte label, ${MAX_TXS} rows, 32-byte amounts) exceeds the ${CARRIER_LINK_LIMIT_CHARS}-char carrier limit`, () => {
+      const link = buildDeepLinkV2('robinhood', '4663', MAX_TXS, GENERATOR_POLICY_MAX_LABEL, FORMAT_MAX_AMOUNT)
+      expect(link.length).toBeGreaterThan(CARRIER_LINK_LIMIT_CHARS)
     })
   })
 })

@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest'
 import { decodePayload } from '../payload.js'
 
 const A1 = '0x9572561eBe198566bBa3B4e7C53F82Ac27587431'
+// --safe has no default: the CLI is generic, so the caller always names the Safe.
+const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
 
 // tools/make-link.mjs does `import '../src/payload.ts'` directly, relying on Node's
 // native TypeScript type-stripping (stable by default from Node 23.6+; Node 22 needs
@@ -20,7 +22,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     writeFileSync(rowsPath, JSON.stringify(rows))
     return spawnSync(
       process.execPath,
-      ['tools/make-link.mjs', '--chain', 'eth', '--format', 'v2', '--label', label, rowsPath],
+      ['tools/make-link.mjs', '--chain', 'eth', '--safe', SAFE, '--format', 'v2', '--label', label, rowsPath],
       { encoding: 'utf8', cwd: process.cwd() },
     )
   }
@@ -32,11 +34,11 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
 
     const output = execFileSync(
       process.execPath,
-      ['tools/make-link.mjs', '--chain', 'robinhood', '--label', 'ci smoke test', rowsPath],
+      ['tools/make-link.mjs', '--chain', 'robinhood', '--safe', SAFE, '--label', 'ci smoke test', rowsPath],
       { encoding: 'utf8', cwd: process.cwd() },
     ).trim()
 
-    expect(output).toMatch(/^https:\/\/app\.safe\.global\/apps\/open\?safe=robinhood:0xEeFa622109b5E97B98220729Fa35fC037B7B3212&appUrl=/)
+    expect(output).toMatch(new RegExp(`^https://app\\.safe\\.global/apps/open\\?safe=robinhood:${SAFE}&appUrl=`))
 
     const appUrl = new URL(output).searchParams.get('appUrl')
     if (!appUrl) throw new Error('make-link.mjs output had no appUrl param')
@@ -48,7 +50,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     expect(decoded.value).toEqual({
       v: 1,
       chainId: '4663',
-      safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+      safe: SAFE,
       label: 'ci smoke test',
       txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
     })
@@ -61,7 +63,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
 
     const output = execFileSync(
       process.execPath,
-      ['tools/make-link.mjs', '--chain', 'robinhood', '--format', 'v2', '--label', 'ci smoke test', rowsPath],
+      ['tools/make-link.mjs', '--chain', 'robinhood', '--safe', SAFE, '--format', 'v2', '--label', 'ci smoke test', rowsPath],
       { encoding: 'utf8', cwd: process.cwd() },
     ).trim()
 
@@ -75,7 +77,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     expect(decoded.value).toEqual({
       v: 2,
       chainId: '4663',
-      safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+      safe: SAFE,
       label: 'ci smoke test',
       txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
     })
@@ -99,7 +101,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     expect(result.stdout).toBe('')
   })
 
-  it('throws instead of printing a link once the Slack button url limit is exceeded', () => {
+  it('throws instead of printing a link once the carrier link limit is exceeded', () => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')
     // 50 distinct rows with a max-length label pushes a v2 link past 3000 chars only
@@ -116,13 +118,13 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     expect(() =>
       execFileSync(
         process.execPath,
-        ['tools/make-link.mjs', '--chain', 'robinhood', '--label', 'x'.repeat(64), rowsPath],
+        ['tools/make-link.mjs', '--chain', 'robinhood', '--safe', SAFE, '--label', 'x'.repeat(64), rowsPath],
         { encoding: 'utf8', cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] },
       ),
     ).toThrow()
   })
 
-  it('rejects a v2 format-maximum link that exceeds the Slack button url limit', () => {
+  it('rejects a v2 format-maximum link that exceeds the carrier link limit', () => {
     const maxUint256 = (2n ** 256n - 1n).toString()
     const rows = Array.from({ length: 50 }, (_, i) => [
       `0x${(1000000000000000000000000000000000000000n + BigInt(i)).toString(16).padStart(40, '0')}`,
@@ -130,7 +132,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     ])
     const result = runWithRows(rows, 'x'.repeat(64))
     expect(result.status).not.toBe(0)
-    expect(result.stderr).toContain('exceeds the Slack button url limit of 3000')
+    expect(result.stderr).toContain('exceeds the 3000-char limit')
     expect(result.stdout).toBe('')
   })
 })

@@ -79,8 +79,8 @@ export interface BatchInput {
 }
 
 /**
- * v2 wire-format constants, identical on both the TS side and the Apps Script
- * hand port (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §1). MAX_TXS above is
+ * v2 wire-format constants. Any second implementation of this format has to use
+ * the same values (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §1). MAX_TXS above is
  * shared with v1 and unchanged.
  */
 const V2_MARKER = 0x02
@@ -91,8 +91,6 @@ export const MAX_CHAIN_ID_BYTES = 8
 export const MAX_AMOUNT_BYTES = 32
 /** Pre-decode guard, checked before base64 decoding, both versions. */
 export const MAX_FRAGMENT_CHARS = 16384
-/** Slack Block Kit button `url` field hard limit. */
-export const SLACK_BUTTON_URL_LIMIT = 3000
 
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/
 
