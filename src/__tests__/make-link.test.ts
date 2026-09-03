@@ -101,6 +101,41 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
     expect(result.stdout).toBe('')
   })
 
+  // --safe is validated for both formats. The v1 encoder itself does not validate
+  // (it JSON.stringifies whatever it gets), so without the CLI check the default
+  // format would print a link built around a placeholder and fail only in the app.
+  it.each([
+    { name: 'a placeholder', safe: '0xYourSafe...' },
+    { name: 'a bad EIP-55 checksum', safe: '0xEEFa622109b5E97B98220729Fa35fC037B7B3212' },
+    { name: 'a too-short address', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac2758743' },
+  ])('rejects $name passed to --safe, on the default (v1) format', ({ safe }) => {
+    const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
+    const rowsPath = join(dir, 'rows.json')
+    writeFileSync(rowsPath, JSON.stringify([[A1, '1000000000000000']]))
+    const result = spawnSync(
+      process.execPath,
+      ['tools/make-link.mjs', '--chain', 'eth', '--safe', safe, '--label', 'x', rowsPath],
+      { encoding: 'utf8', cwd: process.cwd() },
+    )
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/--safe is not a valid address/)
+    expect(result.stdout).toBe('')
+  })
+
+  it('refuses to read the next flag as a flag value', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
+    const rowsPath = join(dir, 'rows.json')
+    writeFileSync(rowsPath, JSON.stringify([[A1, '1000000000000000']]))
+    const result = spawnSync(
+      process.execPath,
+      ['tools/make-link.mjs', '--chain', 'eth', '--safe', '--format', 'v2', '--label', 'x', rowsPath],
+      { encoding: 'utf8', cwd: process.cwd() },
+    )
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/--safe needs a value/)
+    expect(result.stdout).toBe('')
+  })
+
   it('throws instead of printing a link once the carrier link limit is exceeded', () => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')

@@ -99,7 +99,7 @@ const POSITIVE_INTEGER = /^[1-9][0-9]*$/
  * Mixed-case addresses must already satisfy EIP-55, or they're rejected outright —
  * silently "fixing" a bad checksum would defeat the point of a checksum.
  */
-function normalizeAddress(raw: unknown): string | undefined {
+export function normalizeAddress(raw: unknown): string | undefined {
   if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(raw)) return undefined
   const hex = raw.slice(2)
   const isAllLower = hex === hex.toLowerCase()

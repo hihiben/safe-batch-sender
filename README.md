@@ -241,7 +241,11 @@ node tools/make-link.mjs --chain robinhood --safe 0xYourSafe... --label "batch l
 # rows.json: [["0xRecipient...", "500000000000000"], ...]
 ```
 
-`--chain` and `--safe` are both required — the tool has no default Safe. It
+`--chain` and `--safe` are both required — the tool has no default Safe, and
+`0xYourSafe...` above is a placeholder the tool will reject: `--safe` is validated
+with the wire format's own address rule for **both** formats, so a placeholder or a
+bad EIP-55 checksum fails here with a message instead of producing a link that only
+breaks once someone opens it in Safe. It
 refuses to print a link longer than its `MAX_LINK_CHARS` (3000), which is the
 limit of the carrier *we* publish links through (a Slack Block Kit button `url`
 field). That is a property of the consumer, not of the wire format, which is why

@@ -10,7 +10,7 @@
 // rows.json: [["0xRecipient...", "500000000000000"], ...]
 
 import { readFileSync } from 'node:fs'
-import { encodePayload, encodePayloadV2 } from '../src/payload.ts'
+import { encodePayload, encodePayloadV2, normalizeAddress } from '../src/payload.ts'
 import { CHAINS } from '../src/chains.ts'
 
 const APP_HOST = 'https://hihiben.github.io/safe-batch-sender/'
@@ -24,17 +24,32 @@ const MAX_LINK_CHARS = 3000
 
 function parseArgs(argv) {
   const args = { chain: undefined, safe: undefined, label: '', file: undefined, format: 'v1' }
+  // A flag's value is never another flag. Without this, `--safe --format v2` silently
+  // reads "--format" as the Safe address AND drops the format, so you ask for v2 and
+  // get v1 pointed at a nonsense address, with no error anywhere.
+  const value = (i, flag) => {
+    const next = argv[i]
+    if (next === undefined || next.startsWith('--')) throw new Error(`${flag} needs a value`)
+    return next
+  }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
-    if (arg === '--chain') args.chain = argv[++i]
-    else if (arg === '--safe') args.safe = argv[++i]
-    else if (arg === '--label') args.label = argv[++i]
-    else if (arg === '--format') args.format = argv[++i]
+    if (arg === '--chain') args.chain = value(++i, '--chain')
+    else if (arg === '--safe') args.safe = value(++i, '--safe')
+    else if (arg === '--label') args.label = value(++i, '--label')
+    else if (arg === '--format') args.format = value(++i, '--format')
     else if (!arg.startsWith('--')) args.file = arg
     else throw new Error(`Unknown argument: ${arg}`)
   }
   if (!args.chain) throw new Error('--chain is required (chainId or shortName, e.g. "robinhood" or "4663")')
   if (!args.safe) throw new Error('--safe is required (the Safe address the batch will be proposed to)')
+  // Check it here, for both formats. encodePayloadV2 rejects a bad address on its own,
+  // but the v1 encoder just JSON.stringifies whatever it is given — so without this the
+  // default format happily prints a link built around a placeholder like "0xYourSafe...",
+  // and the mistake only surfaces in the app. normalizeAddress is the format's own rule,
+  // reused rather than reimplemented. The raw value is still what gets encoded, so a
+  // valid input produces exactly the bytes it did before.
+  if (!normalizeAddress(args.safe)) throw new Error(`--safe is not a valid address: ${JSON.stringify(args.safe)}`)
   if (!args.file) throw new Error('Path to a rows JSON file is required')
   if (args.format !== 'v1' && args.format !== 'v2') throw new Error(`--format must be "v1" or "v2", got "${args.format}"`)
   return args
