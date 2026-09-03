@@ -429,96 +429,100 @@ describe('prepare() after v2 decode', () => {
 })
 
 // A production-shaped fixture, frozen. Unlike golden vectors A-F (largest 138 bytes) this
-// one is 911 bytes, which is the only size where a bug in the encoder's three-byte base64
+// one is 904 bytes, which is the only size where a bug in the encoder's three-byte base64
 // grouping loop would actually show up.
 //
 // Provenance: produced by a second implementation of this encoder, in a different
-// language and runtime, over 30 synthetic recipients (derived from a hash, not real
-// accounts), and round-tripped there by a third decoder written from the format
-// specification alone. That is what makes the re-encode assertion below a real
-// cross-implementation check rather than this repo agreeing with itself.
+// language and runtime, over 30 synthetic recipients (the first 20 bytes of
+// SHA-256 over 'gas-tank-<i>', not real accounts). That is what makes the re-encode
+// assertion below a real cross-implementation check rather than this repo agreeing
+// with itself.
 //
-// 911 payload bytes (mod 3 = 2) | 1,215 fragment chars | 1,366 deep-link chars
-// 30 rows | 27-byte label | amount widths: 12 x 7 bytes, 18 x 8 bytes | chainId 8453
+// 904 payload bytes (mod 3 = 1) | 1,206 fragment chars | 30 rows | 23-byte label
+// Amounts straddle the 7/8-byte boundary (2^56 - 1) on purpose, 15 of each width: a
+// generator that levels every account to one target emits a single width, so only a
+// deliberately constructed batch exercises amountLen variation.
+//
+// Addresses are lowercase in the input because that is what the encoder was handed. v2
+// carries raw address bytes, so case never reaches the wire: decodePayload returns them
+// checksummed, and re-encoding from either form reproduces this fragment byte for byte.
 const PROD_FIXTURE_INPUT: BatchInput = {
   chainId: '8453',
-  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
-  label: 'uniswapx gas top-up on base',
-  // Lowercase, exactly as buildBatchLink emits them. v2 carries addresses as raw bytes,
-  // so case never reaches the wire; the decoded expectation below is checksummed.
+  safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
+  label: "sample production batch",
   txs: [
-    ['0x32226adbf9f00eb2a83fe221c0cc4e350ec16b76', '78239333300000000'],
-    ['0xbf20c24beeba9c5f5f5efc890e97befdeceb04a4', '77739333300000000'],
-    ['0x6ad1766ec2ab368029d42ef67aac94b17ffcd4d3', '66239333300000000'],
-    ['0x50d561bd3e543e86a3e92ccc563815f540d0b58f', '75139333300000000'],
-    ['0x4328d880533b50fba4e6dbecbc84439904b27a2b', '28239333300000000'],
-    ['0x052e9e8d2db17d71d700280ecfa04f55fcb493fe', '78169333300000000'],
-    ['0xd3af2062b65d2f71129ee386cd37e0950baf90b3', '57239333300000000'],
-    ['0xa469a6f88a561c3095bc2533c47e97916d0be6e0', '78239333300000000'],
-    ['0x6ddf1a6daafbbdfac32127d6c846171034d2eafb', '77739333300000000'],
-    ['0x6588565d3e1b3d7ad7fb28e730bbb4acfec9787f', '66239333300000000'],
-    ['0xb503b5b11b6fbdeaf221bf5874cfb819b84fa6dc', '75139333300000000'],
-    ['0x847c231e3c4cc7be26e69c808350bd8440c765dc', '28239333300000000'],
-    ['0x40174cf8d610f167df9d62ef2793ff2e98b33895', '78169333300000000'],
-    ['0xb3e2c665140fe3a8767e4950f98bc7542a4bc3a3', '57239333300000000'],
-    ['0x206f5e532a402a6a710e5a5eb3222de18b7589e9', '78239333300000000'],
-    ['0xe4d76b41c76ebe74ee7a0074b98a683eaaba8802', '77739333300000000'],
-    ['0x09ea89497f309b23b6e0f85f9f4c29e140b75aa5', '66239333300000000'],
-    ['0xf66903c91cfcb5d31cd3e0a5743001a3947d7f91', '75139333300000000'],
-    ['0x7b4d3b4ca37f7d64fb7a305c4b35056043fce139', '28239333300000000'],
-    ['0x35872e5236755a23d9874c96f93268827628af9d', '78169333300000000'],
-    ['0x79c561ee7f39e47f7e4377d0b44d91bcbfc6a79d', '57239333300000000'],
-    ['0x7416f6c050fb58edb599c6ce45774618086862b1', '78239333300000000'],
-    ['0x4f871a82bb9f2718dbbbe162879de6084044abf7', '77739333300000000'],
-    ['0x7a411f2ecc8536e613771f9500dacc6697f332d9', '66239333300000000'],
-    ['0x61b5027a4ab1be8c4f6490b06cbf8f17d6cf6913', '75139333300000000'],
-    ['0xfaed05acbd839f8e9488e9ddcede4d9ad1426c97', '28239333300000000'],
-    ['0x848e1258a5258b534f51bfe12476ab9357949691', '78169333300000000'],
-    ['0xc73c027daa26c16e9c832bd504fa12535ff1e3a0', '57239333300000000'],
-    ['0x95bd239c2987d1228489000907abe341598ea0f0', '78239333300000000'],
-    ['0xca9cbfe6039d1cbca309a728bf45f6b7587b1b53', '77739333300000000'],
+    ['0x32226adbf9f00eb2a83fe221c0cc4e350ec16b76', '30000000000000000'],
+    ['0xbf20c24beeba9c5f5f5efc890e97befdeceb04a4', '33000000000000000'],
+    ['0x6ad1766ec2ab368029d42ef67aac94b17ffcd4d3', '36000000000000000'],
+    ['0x50d561bd3e543e86a3e92ccc563815f540d0b58f', '39000000000000000'],
+    ['0x4328d880533b50fba4e6dbecbc84439904b27a2b', '42000000000000000'],
+    ['0x052e9e8d2db17d71d700280ecfa04f55fcb493fe', '45000000000000000'],
+    ['0xd3af2062b65d2f71129ee386cd37e0950baf90b3', '48000000000000000'],
+    ['0xa469a6f88a561c3095bc2533c47e97916d0be6e0', '51000000000000000'],
+    ['0x6ddf1a6daafbbdfac32127d6c846171034d2eafb', '54000000000000000'],
+    ['0x6588565d3e1b3d7ad7fb28e730bbb4acfec9787f', '57000000000000000'],
+    ['0xb503b5b11b6fbdeaf221bf5874cfb819b84fa6dc', '60000000000000000'],
+    ['0x847c231e3c4cc7be26e69c808350bd8440c765dc', '63000000000000000'],
+    ['0x40174cf8d610f167df9d62ef2793ff2e98b33895', '66000000000000000'],
+    ['0xb3e2c665140fe3a8767e4950f98bc7542a4bc3a3', '69000000000000000'],
+    ['0x206f5e532a402a6a710e5a5eb3222de18b7589e9', '72000000000000000'],
+    ['0xe4d76b41c76ebe74ee7a0074b98a683eaaba8802', '75000000000000000'],
+    ['0x09ea89497f309b23b6e0f85f9f4c29e140b75aa5', '78000000000000000'],
+    ['0xf66903c91cfcb5d31cd3e0a5743001a3947d7f91', '81000000000000000'],
+    ['0x7b4d3b4ca37f7d64fb7a305c4b35056043fce139', '84000000000000000'],
+    ['0x35872e5236755a23d9874c96f93268827628af9d', '87000000000000000'],
+    ['0x79c561ee7f39e47f7e4377d0b44d91bcbfc6a79d', '90000000000000000'],
+    ['0x7416f6c050fb58edb599c6ce45774618086862b1', '93000000000000000'],
+    ['0x4f871a82bb9f2718dbbbe162879de6084044abf7', '96000000000000000'],
+    ['0x7a411f2ecc8536e613771f9500dacc6697f332d9', '99000000000000000'],
+    ['0x61b5027a4ab1be8c4f6490b06cbf8f17d6cf6913', '102000000000000000'],
+    ['0xfaed05acbd839f8e9488e9ddcede4d9ad1426c97', '105000000000000000'],
+    ['0x848e1258a5258b534f51bfe12476ab9357949691', '108000000000000000'],
+    ['0xc73c027daa26c16e9c832bd504fa12535ff1e3a0', '111000000000000000'],
+    ['0x95bd239c2987d1228489000907abe341598ea0f0', '114000000000000000'],
+    ['0xca9cbfe6039d1cbca309a728bf45f6b7587b1b53', '117000000000000000'],
   ],
 }
 
 const PROD_FIXTURE_FRAGMENT =
-  'AgIhBe76YiEJtel7mCIHKfo1_AN7ezISG3VuaXN3YXB4IGdhcyB0b3AtdXAgb24gYmFzZR4yImrb-fAOsqg_4iHAzE41DsFrdggBFfZCVM9VAL8gwkvuupxfX178iQ6Xvv3s6wSkCAEUL4MCbBUAatF2bsKrNoAp1C72eqyUsX_81NMH61RSm4FVAFDVYb0-VD6Go-kszFY4FfVA0LWPCAEK8tNWAZUAQyjYgFM7UPuk5tvsvIRDmQSyeisHZFOGJgpVAAUuno0tsX1x1wAoDs-gT1X8tJP-CAEVtpgvrPUA068gYrZdL3ESnuOGzTfglQuvkLMHy1re0IbVAKRppviKVhwwlbwlM8R-l5FtC-bgCAEV9kJUz1UAbd8abar7vfrDISfWyEYXEDTS6vsIARQvgwJsFQBliFZdPhs9etf7KOcwu7Ss_sl4fwfrVFKbgVUAtQO1sRtvveryIb9YdM-4GbhPptwIAQry01YBlQCEfCMePEzHvibmnICDUL2EQMdl3AdkU4YmClUAQBdM-NYQ8WffnWLvJ5P_LpizOJUIARW2mC-s9QCz4sZlFA_jqHZ-SVD5i8dUKkvDowfLWt7QhtUAIG9eUypAKmpxDlpesyIt4Yt1iekIARX2QlTPVQDk12tBx26-dO56AHS5img-qrqIAggBFC-DAmwVAAnqiUl_MJsjtuD4X59MKeFAt1qlB-tUUpuBVQD2aQPJHPy10xzT4KV0MAGjlH1_kQgBCvLTVgGVAHtNO0yjf31k-3owXEs1BWBD_OE5B2RThiYKVQA1hy5SNnVaI9mHTJb5MmiCdiivnQgBFbaYL6z1AHnFYe5_OeR_fkN30LRNkby_xqedB8ta3tCG1QB0FvbAUPtY7bWZxs5Fd0YYCGhisQgBFfZCVM9VAE-HGoK7nycY27vhYoed5ghARKv3CAEUL4MCbBUAekEfLsyFNuYTdx-VANrMZpfzMtkH61RSm4FVAGG1AnpKsb6MT2SQsGy_jxfWz2kTCAEK8tNWAZUA-u0FrL2Dn46UiOndzt5NmtFCbJcHZFOGJgpVAISOElilJYtTT1G_4SR2q5NXlJaRCAEVtpgvrPUAxzwCfaomwW6cgyvVBPoSU1_x46AHy1re0IbVAJW9I5wph9EihIkACQer40FZjqDwCAEV9kJUz1UAypy_5gOdHLyjCacov0X2t1h7G1MIARQvgwJsFQA'
+  'AgIhBTQykxyp9Y85Q86AYDnHmfBhOHG9F3NhbXBsZSBwcm9kdWN0aW9uIGJhdGNoHjIiatv58A6yqD_iIcDMTjUOwWt2B2qU109DAAC_IMJL7rqcX19e_IkOl7797OsEpAd1PVM9loAAatF2bsKrNoAp1C72eqyUsX_81NMHf-XPK-oAAFDVYb0-VD6Go-kszFY4FfVA0LWPB4qOSxo9gABDKNiAUztQ-6Tm2-y8hEOZBLJ6KweVNscIkQAABS6ejS2xfXHXACgOz6BPVfy0k_4Hn99C9uSAANOvIGK2XS9xEp7jhs034JULr5CzB6qHvuU4AACkaab4ilYcMJW8JTPEfpeRbQvm4Ae1MDrTi4AAbd8abar7vfrDISfWyEYXEDTS6vsHv9i2wd8AAGWIVl0-Gz161_so5zC7tKz-yXh_B8qBMrAygAC1A7WxG2-96vIhv1h0z7gZuE-m3AfVKa6ehgAAhHwjHjxMx74m5pyAg1C9hEDHZdwH39IqjNmAAEAXTPjWEPFn351i7yeT_y6YsziVB-p6pnstAACz4sZlFA_jqHZ-SVD5i8dUKkvDowf1IyJpgIAAIG9eUypAKmpxDlpesyIt4Yt1iekH_8ueV9QAAOTXa0HHbr507noAdLmKaD6quogCCAEKdBpGJ4AACeqJSX8wmyO24Phfn0wp4UC3WqUIARUcljR7AAD2aQPJHPy10xzT4KV0MAGjlH1_kQgBH8USIs6AAHtNO0yjf31k-3owXEs1BWBD_OE5CAEqbY4RIgAANYcuUjZ1WiPZh0yW-TJognYor50IATUWCf91gAB5xWHufznkf35Dd9C0TZG8v8annQgBP76F7ckAAHQW9sBQ-1jttZnGzkV3RhgIaGKxCAFKZwHcHIAAT4cagrufJxjbu-Fih53mCEBEq_cIAVUPfcpwAAB6QR8uzIU25hN3H5UA2sxml_My2QgBX7f5uMOAAGG1AnpKsb6MT2SQsGy_jxfWz2kTCAFqYHWnFwAA-u0FrL2Dn46UiOndzt5NmtFCbJcIAXUI8ZVqgACEjhJYpSWLU09Rv-EkdquTV5SWkQgBf7Ftg74AAMc8An2qJsFunIMr1QT6ElNf8eOgCAGKWelyEYAAlb0jnCmH0SKEiQAJB6vjQVmOoPAIAZUCZWBlAADKnL_mA50cvKMJpyi_Rfa3WHsbUwgBn6rhTriAAA'
 
 const PROD_FIXTURE_DECODED = {
   v: 2 as const,
   chainId: '8453',
-  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
-  label: 'uniswapx gas top-up on base',
+  safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
+  label: "sample production batch",
   txs: [
-    { to: '0x32226AdBF9F00eb2A83fE221C0Cc4E350Ec16b76', amountWei: '78239333300000000' },
-    { to: '0xBF20C24BeeBa9c5f5F5efC890E97BeFDeCeB04A4', amountWei: '77739333300000000' },
-    { to: '0x6Ad1766ec2ab368029D42Ef67aac94b17FFcd4d3', amountWei: '66239333300000000' },
-    { to: '0x50D561bD3e543E86A3E92ccC563815f540d0b58F', amountWei: '75139333300000000' },
-    { to: '0x4328D880533b50fBA4e6DBeCBc84439904B27a2b', amountWei: '28239333300000000' },
-    { to: '0x052E9e8d2Db17d71D700280Ecfa04f55fCB493fe', amountWei: '78169333300000000' },
-    { to: '0xd3AF2062b65D2F71129eE386CD37e0950baf90B3', amountWei: '57239333300000000' },
-    { to: '0xa469A6F88a561c3095Bc2533C47e97916D0bE6e0', amountWei: '78239333300000000' },
-    { to: '0x6DdF1A6DAafBbDfac32127d6C846171034d2EAFb', amountWei: '77739333300000000' },
-    { to: '0x6588565d3E1b3D7AD7Fb28E730bbb4aCFeC9787f', amountWei: '66239333300000000' },
-    { to: '0xB503b5b11B6FBDEaf221Bf5874cfB819B84Fa6Dc', amountWei: '75139333300000000' },
-    { to: '0x847c231e3c4cc7Be26E69c808350Bd8440c765DC', amountWei: '28239333300000000' },
-    { to: '0x40174cf8D610F167Df9D62eF2793ff2E98B33895', amountWei: '78169333300000000' },
-    { to: '0xB3e2c665140FE3a8767E4950f98Bc7542A4Bc3a3', amountWei: '57239333300000000' },
-    { to: '0x206f5e532a402a6A710E5A5eB3222dE18b7589E9', amountWei: '78239333300000000' },
-    { to: '0xe4D76B41C76Ebe74eE7a0074b98a683eaAba8802', amountWei: '77739333300000000' },
-    { to: '0x09EA89497F309b23B6e0F85f9f4C29e140b75aA5', amountWei: '66239333300000000' },
-    { to: '0xF66903c91cFcB5d31CD3e0a5743001A3947D7f91', amountWei: '75139333300000000' },
-    { to: '0x7B4D3B4cA37f7D64fb7a305c4b35056043fcE139', amountWei: '28239333300000000' },
-    { to: '0x35872E5236755a23d9874c96f93268827628AF9d', amountWei: '78169333300000000' },
-    { to: '0x79c561EE7F39e47F7E4377D0b44d91BCbfC6A79D', amountWei: '57239333300000000' },
-    { to: '0x7416F6c050FB58EdB599c6Ce45774618086862b1', amountWei: '78239333300000000' },
-    { to: '0x4f871a82bB9F2718dBbbe162879DE6084044AbF7', amountWei: '77739333300000000' },
-    { to: '0x7a411F2Ecc8536e613771F9500Dacc6697f332d9', amountWei: '66239333300000000' },
-    { to: '0x61b5027a4AB1bE8C4f6490b06cbf8f17D6CF6913', amountWei: '75139333300000000' },
-    { to: '0xFaeD05aCBD839F8E9488E9DdCede4d9ad1426c97', amountWei: '28239333300000000' },
-    { to: '0x848e1258a5258b534F51bfe12476AB9357949691', amountWei: '78169333300000000' },
-    { to: '0xC73c027DAa26c16E9c832bD504FA12535FF1E3a0', amountWei: '57239333300000000' },
-    { to: '0x95bd239c2987d1228489000907ABE341598eA0f0', amountWei: '78239333300000000' },
-    { to: '0xca9CbFE6039d1CBcA309a728Bf45f6B7587B1b53', amountWei: '77739333300000000' },
+    { to: '0x32226AdBF9F00eb2A83fE221C0Cc4E350Ec16b76', amountWei: '30000000000000000' },
+    { to: '0xBF20C24BeeBa9c5f5F5efC890E97BeFDeCeB04A4', amountWei: '33000000000000000' },
+    { to: '0x6Ad1766ec2ab368029D42Ef67aac94b17FFcd4d3', amountWei: '36000000000000000' },
+    { to: '0x50D561bD3e543E86A3E92ccC563815f540d0b58F', amountWei: '39000000000000000' },
+    { to: '0x4328D880533b50fBA4e6DBeCBc84439904B27a2b', amountWei: '42000000000000000' },
+    { to: '0x052E9e8d2Db17d71D700280Ecfa04f55fCB493fe', amountWei: '45000000000000000' },
+    { to: '0xd3AF2062b65D2F71129eE386CD37e0950baf90B3', amountWei: '48000000000000000' },
+    { to: '0xa469A6F88a561c3095Bc2533C47e97916D0bE6e0', amountWei: '51000000000000000' },
+    { to: '0x6DdF1A6DAafBbDfac32127d6C846171034d2EAFb', amountWei: '54000000000000000' },
+    { to: '0x6588565d3E1b3D7AD7Fb28E730bbb4aCFeC9787f', amountWei: '57000000000000000' },
+    { to: '0xB503b5b11B6FBDEaf221Bf5874cfB819B84Fa6Dc', amountWei: '60000000000000000' },
+    { to: '0x847c231e3c4cc7Be26E69c808350Bd8440c765DC', amountWei: '63000000000000000' },
+    { to: '0x40174cf8D610F167Df9D62eF2793ff2E98B33895', amountWei: '66000000000000000' },
+    { to: '0xB3e2c665140FE3a8767E4950f98Bc7542A4Bc3a3', amountWei: '69000000000000000' },
+    { to: '0x206f5e532a402a6A710E5A5eB3222dE18b7589E9', amountWei: '72000000000000000' },
+    { to: '0xe4D76B41C76Ebe74eE7a0074b98a683eaAba8802', amountWei: '75000000000000000' },
+    { to: '0x09EA89497F309b23B6e0F85f9f4C29e140b75aA5', amountWei: '78000000000000000' },
+    { to: '0xF66903c91cFcB5d31CD3e0a5743001A3947D7f91', amountWei: '81000000000000000' },
+    { to: '0x7B4D3B4cA37f7D64fb7a305c4b35056043fcE139', amountWei: '84000000000000000' },
+    { to: '0x35872E5236755a23d9874c96f93268827628AF9d', amountWei: '87000000000000000' },
+    { to: '0x79c561EE7F39e47F7E4377D0b44d91BCbfC6A79D', amountWei: '90000000000000000' },
+    { to: '0x7416F6c050FB58EdB599c6Ce45774618086862b1', amountWei: '93000000000000000' },
+    { to: '0x4f871a82bB9F2718dBbbe162879DE6084044AbF7', amountWei: '96000000000000000' },
+    { to: '0x7a411F2Ecc8536e613771F9500Dacc6697f332d9', amountWei: '99000000000000000' },
+    { to: '0x61b5027a4AB1bE8C4f6490b06cbf8f17D6CF6913', amountWei: '102000000000000000' },
+    { to: '0xFaeD05aCBD839F8E9488E9DdCede4d9ad1426c97', amountWei: '105000000000000000' },
+    { to: '0x848e1258a5258b534F51bfe12476AB9357949691', amountWei: '108000000000000000' },
+    { to: '0xC73c027DAa26c16E9c832bD504FA12535FF1E3a0', amountWei: '111000000000000000' },
+    { to: '0x95bd239c2987d1228489000907ABE341598eA0f0', amountWei: '114000000000000000' },
+    { to: '0xca9CbFE6039d1CBcA309a728Bf45f6B7587B1b53', amountWei: '117000000000000000' },
   ],
 }
 
@@ -535,8 +539,8 @@ describe('production-shaped fixture from an independent encoder', () => {
   })
 
   it('is the size and shape the provenance comment claims', () => {
-    expect(PROD_FIXTURE_FRAGMENT).toHaveLength(1215)
-    expect(base64UrlDecodeForTest(PROD_FIXTURE_FRAGMENT)).toHaveLength(911)
+    expect(PROD_FIXTURE_FRAGMENT).toHaveLength(1206)
+    expect(base64UrlDecodeForTest(PROD_FIXTURE_FRAGMENT)).toHaveLength(904)
     expect(PROD_FIXTURE_INPUT.txs).toHaveLength(30)
   })
 })
