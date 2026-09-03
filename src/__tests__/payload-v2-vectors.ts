@@ -1,10 +1,12 @@
-// Frozen golden vectors for the v2 binary wire format, copied verbatim from
-// SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §4. Do not edit `fragment` or `hex`
-// without re-approving the spec — this module is the contract document Ben's
-// hand-written Apps Script port is checked against.
+// Frozen golden vectors for the v2 binary wire format. Do not edit `fragment` or `hex`:
+// this module is the contract any other implementation of the format is checked against,
+// so changing a byte here silently redefines the format instead of catching a bug.
 //
-// "These six were produced by the plan and then independently reproduced,
-// byte for byte, by a second implementation written from this document alone."
+// Each was derived from the format specification and then independently reproduced, byte
+// for byte, by a separate implementation written from that specification alone. They are
+// deliberately small and varied rather than realistic: between them they cover all three
+// base64 length remainders, a multi-byte UTF-8 label, a full uint256 amount, an amount
+// with an interior zero byte, and a repeated recipient."
 import type { BatchInput, BatchPayload } from '../payload.js'
 
 const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'

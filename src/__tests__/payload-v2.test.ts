@@ -425,12 +425,11 @@ describe('prepare() after v2 decode', () => {
 // one is 911 bytes, which is the only size where a bug in the encoder's three-byte base64
 // grouping loop would actually show up.
 //
-// Provenance: produced on 2026-09-02 by gas-refill-util's deployed `buildBatchLink` with
-// BATCH_SENDER_PAYLOAD_VERSION temporarily set to 2, over a 30-row synthetic dashboard
-// (recipients are the first 20 bytes of sha256('gas-tank-<i>'), not real gas tanks), and
-// round-tripped there by a third decoder written from the wire spec alone. That makes the
-// re-encode assertion below a genuine cross-implementation check: the Apps Script encoder
-// and this one have to agree byte for byte, which is the entire reason the spec exists.
+// Provenance: produced by a second implementation of this encoder, in a different
+// language and runtime, over 30 synthetic recipients (derived from a hash, not real
+// accounts), and round-tripped there by a third decoder written from the format
+// specification alone. That is what makes the re-encode assertion below a real
+// cross-implementation check rather than this repo agreeing with itself.
 //
 // 911 payload bytes (mod 3 = 2) | 1,215 fragment chars | 1,366 deep-link chars
 // 30 rows | 27-byte label | amount widths: 12 x 7 bytes, 18 x 8 bytes | chainId 8453
@@ -516,7 +515,7 @@ const PROD_FIXTURE_DECODED = {
   ],
 }
 
-describe('production-shaped fixture from the Apps Script encoder', () => {
+describe('production-shaped fixture from an independent encoder', () => {
   it('decodes the frozen fragment to the expected batch', () => {
     const result = decodePayload('#' + PROD_FIXTURE_FRAGMENT)
     expect(result.ok).toBe(true)
@@ -524,7 +523,7 @@ describe('production-shaped fixture from the Apps Script encoder', () => {
     expect(result.value).toEqual(PROD_FIXTURE_DECODED)
   })
 
-  it('re-encodes to the identical fragment the Apps Script encoder produced', () => {
+  it('re-encodes to the identical fragment that encoder produced', () => {
     expect(encodePayloadV2(PROD_FIXTURE_INPUT)).toBe(PROD_FIXTURE_FRAGMENT)
   })
 

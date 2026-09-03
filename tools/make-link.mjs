@@ -15,11 +15,11 @@ import { CHAINS } from '../src/chains.ts'
 
 const APP_HOST = 'https://hihiben.github.io/safe-batch-sender/'
 
-// A link is only useful if whatever carries it will accept the whole string, and the
-// tightest carrier we post links through is a Slack Block Kit button, whose `url` field
-// is capped at 3000 characters. That is a property of the consumer, not of the wire
-// format, so it lives here rather than in src/payload.ts — point this at your own
-// carrier's limit if you publish links some other way.
+// A link is only useful if whatever carries it will accept the whole string. Chat
+// platforms commonly cap a button's URL at 3000 characters, which is tighter than
+// anything the wire format imposes, so that is the default here. It is a property of
+// wherever you publish links, not of the format, which is why it lives in this tool
+// rather than in src/payload.ts — change it to match your own carrier.
 const MAX_LINK_CHARS = 3000
 
 function parseArgs(argv) {

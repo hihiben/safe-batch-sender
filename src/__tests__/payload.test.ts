@@ -12,17 +12,16 @@ const BEN_FIXTURE_DECODED = {
   txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
 }
 
-// Produced by a MAKE_BATCH_LINK harness running in real Google Sheets on 2026-09-01.
-// That harness (apps-script/Code.gs) has since been removed, but this fragment is kept
-// deliberately: it is the artifact that closed the "Apps Script encoding is only
-// inferred" gap, proving Utilities.base64EncodeWebSafe emits unpadded base64url that
-// this app's decoder accepts and that encodePayload reproduces byte-identically. The
-// production generator (gas-refill-util's buildBatchLink) uses that same call, so this
-// fixture still covers the encoder it depends on.
-const GAS_FIXTURE_FRAGMENT =
+// A frozen v1 fragment, produced by a second implementation of this encoder written in
+// a different language and runtime, not by the code in this repo. That is the whole
+// point of keeping it: a repo can only ever prove itself self-consistent, so a fixture
+// from an outside implementation is what turns "our encoder agrees with itself" into
+// "two independent encoders agree". The assertions below check both directions — this
+// app decodes it, and encodePayload reproduces it byte for byte.
+const EXTERNAL_FIXTURE_FRAGMENT =
   'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweEVlRmE2MjIxMDliNUU5N0I5ODIyMDcyOUZhMzVmQzAzN0I3QjMyMTIiLCJsYWJlbCI6ImdhcyByZWZpbGwgdGVzdCIsInR4cyI6W1siMHg5NTcyNTYxZUJlMTk4NTY2YkJhM0I0ZTdDNTNGODJBYzI3NTg3NDMxIiwiNTAwMDAwMDAwMDAwMDAwIl0sWyIweDVGOEQ3NGZDRkUwQjQyYTNhNGQ1NjQ2YzBmNWQ5MTI0MDU5ODE3YTIiLCI1MDAwMDAwMDAwMDAwMDAiXV19'
 
-const GAS_FIXTURE_DECODED = {
+const EXTERNAL_FIXTURE_DECODED = {
   v: 1,
   chainId: '4663',
   safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
@@ -48,22 +47,22 @@ describe('decodePayload', () => {
     expect(result.value).toEqual(BEN_FIXTURE_DECODED)
   })
 
-  it('decodes a fragment produced by the real Google Apps Script helper', () => {
-    const result = decodePayload(GAS_FIXTURE_FRAGMENT)
+  it('decodes a fragment produced by an independent implementation', () => {
+    const result = decodePayload(EXTERNAL_FIXTURE_FRAGMENT)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value).toEqual(GAS_FIXTURE_DECODED)
+    expect(result.value).toEqual(EXTERNAL_FIXTURE_DECODED)
   })
 
-  it('re-encodes the Apps Script fixture byte-identically (no cross-runtime drift)', () => {
+  it('re-encodes that fixture byte-identically (no cross-implementation drift)', () => {
     const reencoded = encodePayload({
       v: 1,
-      chainId: GAS_FIXTURE_DECODED.chainId,
-      safe: GAS_FIXTURE_DECODED.safe,
-      label: GAS_FIXTURE_DECODED.label,
-      txs: GAS_FIXTURE_DECODED.txs.map((t): [string, string] => [t.to, t.amountWei]),
+      chainId: EXTERNAL_FIXTURE_DECODED.chainId,
+      safe: EXTERNAL_FIXTURE_DECODED.safe,
+      label: EXTERNAL_FIXTURE_DECODED.label,
+      txs: EXTERNAL_FIXTURE_DECODED.txs.map((t): [string, string] => [t.to, t.amountWei]),
     })
-    expect(reencoded).toBe(GAS_FIXTURE_FRAGMENT)
+    expect(reencoded).toBe(EXTERNAL_FIXTURE_FRAGMENT)
   })
 
   it('decodes the same payload when it carries base64 padding', () => {
@@ -174,13 +173,13 @@ describe('decodePayload', () => {
       v: 1,
       chainId: '1',
       safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
-      label: '補 gas 給 filler',
+      label: '批次轉帳 🔥',
       txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value.label).toBe('補 gas 給 filler')
+    expect(result.value.label).toBe('批次轉帳 🔥')
   })
 
   it('rejects a 3-tuple entry with a valid token address (ERC-20 not supported yet)', () => {
@@ -253,7 +252,7 @@ describe('encodePayload', () => {
     expect(result.value).toEqual(BEN_FIXTURE_DECODED)
   })
 
-  it('emits base64url without padding, matching the sheet-side format', () => {
+  it('emits base64url without padding, as the wire format requires', () => {
     const fragment = encodePayload({
       v: 1,
       chainId: '4663',

@@ -6,7 +6,7 @@ const BASE_PAYLOAD: BatchPayload = {
   v: 1,
   chainId: '4663',
   safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
-  label: 'gas refill',
+  label: 'test batch',
   txs: [
     { to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' },
     { to: '0x8d10551fbB0dA1eaDF34B25210fE75F278fa9321', amountWei: '1000000000000000' },
@@ -46,7 +46,7 @@ describe('prepare', () => {
   it('carries the label through', () => {
     const result = prepare(BASE_PAYLOAD, MATCHING_CTX)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value.label).toBe('gas refill')
+    expect(result.value.label).toBe('test batch')
   })
 
   it('rejects when the Safe context chainId does not match the payload', () => {

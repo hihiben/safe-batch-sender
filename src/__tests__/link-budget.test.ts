@@ -19,7 +19,7 @@ function buildDeepLinkV1(shortName: string, chainId: string, txCount: number): s
     v: 1,
     chainId,
     safe: SAFE,
-    label: 'gas refill batch',
+    label: 'test batch',
     txs: Array.from({ length: txCount }, (_, i) => [addressAt(i), '500000000000000']),
   }
   return deepLinkFromFragment(shortName, encodePayload(payload))
@@ -49,17 +49,17 @@ function buildDeepLinkV2(shortName: string, chainId: string, txCount: number, la
 const V1_DEEP_LINK_BUDGET_CHARS = 5000
 
 // Once v2 packs the payload, CloudFront's 8192-byte ceiling stops being the binding
-// constraint: whatever carries the link is now tighter. The tightest carrier we publish
-// through is a Slack Block Kit button, whose `url` field is capped at 3000 characters,
-// and tools/make-link.mjs enforces that as MAX_LINK_CHARS. The literal is repeated here
+// constraint: whatever carries the link is now tighter. A typical chat platform we might
+// publish through caps a button's URL at 3000 characters, and tools/make-link.mjs
+// enforces that as MAX_LINK_CHARS. The literal is repeated here
 // on purpose — this test guards an external constraint, so it should fail if the number
 // changes, not silently follow it. 2,600 is a regression budget with headroom below it,
 // checked separately from the hard limit so a failure names which wall was hit.
 const V2_REGRESSION_BUDGET_CHARS = 2600
 const CARRIER_LINK_LIMIT_CHARS = 3000
-// One generator's policy, not a format rule: the gas top-up generator never emits an
-// amount wider than 10 bytes. Kept as a named example of a realistic upper bound, and
-// contrasted below with what the format itself allows.
+// One generator's policy, not a format rule. A generator that only ever sends amounts
+// below 2^80 wei produces links this size; kept as a named example of a realistic upper
+// bound, and contrasted below with what the format itself allows.
 const GENERATOR_POLICY_MAX_LABEL = 'x'.repeat(64) // MAX_LABEL_BYTES, all-ASCII so 1 byte/char
 const GENERATOR_POLICY_MAX_AMOUNT = (1n << 79n).toString() // minimal encoding is exactly 10 bytes
 const FORMAT_MAX_AMOUNT = (2n ** 256n - 1n).toString() // MAX_AMOUNT_BYTES = 32

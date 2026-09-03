@@ -33,7 +33,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 /**
- * Without this, any page can iframe this app on its real hihiben.github.io
+ * Without this, any page can iframe this app on its real
  * origin and answer its postMessage calls itself, rendering a fully-formed
  * "Propose to Safe" preview with attacker-chosen amounts/symbols (the SDK
  * default is no origin restriction at all). The attacker still can't get a

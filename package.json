@@ -1,7 +1,13 @@
 {
   "name": "safe-batch-sender",
+  "version": "1.0.0",
+  "description": "A static Safe App that proposes a batch of native-token transfers from a payload encoded in the link.",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hihiben/safe-batch-sender.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

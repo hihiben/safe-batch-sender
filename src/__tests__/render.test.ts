@@ -11,7 +11,7 @@ const ROWS: PreparedRow[] = [
 
 function baseOpts(overrides: Partial<Parameters<typeof renderPreview>[1]> = {}) {
   return {
-    label: 'gas refill',
+    label: 'test batch',
     rows: ROWS,
     totalWei: '1500000000000000',
     nativeSymbol: 'ETH',
@@ -59,8 +59,8 @@ describe('renderPreview', () => {
 
   it('shows the label as a heading, and omits it when empty', () => {
     const withLabel = document.createElement('div')
-    renderPreview(withLabel, baseOpts({ readOnly: true, label: 'gas refill' }))
-    expect(withLabel.querySelector('h2')?.textContent).toBe('gas refill')
+    renderPreview(withLabel, baseOpts({ readOnly: true, label: 'test batch' }))
+    expect(withLabel.querySelector('h2')?.textContent).toBe('test batch')
 
     const withoutLabel = document.createElement('div')
     renderPreview(withoutLabel, baseOpts({ readOnly: true, label: '' }))
