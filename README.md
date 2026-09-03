@@ -272,3 +272,11 @@ domain you control in front of the host before you need to move.
   "Propose to Safe" preview. If this app is ever opened through a self-hosted
   Safe{Wallet} fork instead of `app.safe.global`, that domain must be added to
   this list or the app will refuse to load inside it.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+This proposes real transactions. The preview is the only thing between a link
+and a batch someone signs, so read it, and review this code yourself before
+using it with funds you care about.
