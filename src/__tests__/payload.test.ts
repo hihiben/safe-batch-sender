@@ -68,6 +68,9 @@ describe('decodePayload', () => {
   it('decodes the same payload when it carries base64 padding', () => {
     const padded = SAMPLE_FRAGMENT.replace(/-/g, '+').replace(/_/g, '/')
     const withPadding = padded + '='.repeat((4 - (padded.length % 4)) % 4)
+    // This one expects success, so a rewrite that changed nothing would pass without
+    // testing anything. Fail loudly instead if the fixture ever stops differing.
+    expect(withPadding).not.toBe(SAMPLE_FRAGMENT)
     const result = decodePayload(withPadding)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')

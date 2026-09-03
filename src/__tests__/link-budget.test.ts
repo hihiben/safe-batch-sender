@@ -44,8 +44,7 @@ function buildDeepLinkV2(shortName: string, chainId: string, txCount: number, la
 // real safe margin for a logged-in user is smaller than what curl measures.
 // 5000 is comfortably below the observed failure point while covering the
 // MAX_TXS=50 cap with room to spare. This budget only matters while the v1
-// encoder still exists (SAFE_BATCH_SENDER_PAYLOAD_V2.md (kept outside this repo, in the operator workspace) §9, rollout
-// step 9 removes it).
+// encoder still exists (README "Payload v2 (wire format)"; v1 stays decodable).
 const V1_DEEP_LINK_BUDGET_CHARS = 5000
 
 // Once v2 packs the payload, CloudFront's 8192-byte ceiling stops being the binding

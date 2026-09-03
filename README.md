@@ -55,7 +55,8 @@ no live Safe to validate against outside the iframe.
   actually propose 5 ETH, with nothing in the UI to catch it. ERC-20 support
   will be introduced as a version bump (`v: 2`) once the preview and the
   proposed transaction both understand it, not by quietly accepting the syntax
-  ahead of time.
+  ahead of time. (`v: 2` below is a re-encoding of the same fields, not that
+  extension — it still carries native transfers only.)
 - `txs` may contain at most `MAX_TXS` (50) entries — above the observed
   41-row max, but with real headroom below `app.safe.global`'s actual link
   length limit (see "Link length" below) rather than an arbitrary round
@@ -71,6 +72,61 @@ no live Safe to validate against outside the iframe.
 (`%23`) and `=` (`%3D`). An unencoded `#` truncates the URL at
 `app.safe.global`'s own fragment boundary and the payload never reaches this
 app at all — this is the single most common way to build a broken link.
+
+## Payload v2 (wire format)
+
+v2 carries exactly the same fields as v1 — chain, Safe, label, and a list of
+`[to, amountWei]` native transfers — packed as bytes instead of JSON. A 30-row
+batch is about 2.2x shorter this way, which matters because the link has to
+survive whatever publishes it (see "Link length"). **Both versions decode
+forever**; a generator may emit either.
+
+Layout, all integers big-endian:
+
+```
+0x02                     marker, one byte
+chainIdLen               one byte, 1..8
+chainId                  chainIdLen bytes, minimal (no leading zero byte)
+safe                     20 bytes
+labelLen                 one byte, 0..255
+label                    labelLen bytes, UTF-8
+n                        one byte, number of transfers, 1..50 (MAX_TXS)
+  ... then n times:
+  to                     20 bytes
+  amountLen              one byte, 1..32
+  amount                 amountLen bytes, minimal (no leading zero byte)
+```
+
+The byte string is then base64url-encoded with **no padding**, and placed after
+`#` in the app URL exactly as v1 is.
+
+Rules a second implementation has to match, all enforced by the decoder:
+
+- **Minimal integers.** `chainId` and every `amount` must have no leading zero
+  byte. `256` encodes as `01 00`, not `00 01 00`. Zero amounts are invalid.
+- **No trailing bytes.** The cursor must land exactly on the end of the buffer.
+- **Label must be valid UTF-8**, decoded strictly — a lone surrogate or an
+  overlong sequence is rejected, not replaced. Encoders must also reject a
+  label containing an unpaired surrogate, so that two implementations cannot
+  disagree about what the bytes should be.
+- **Canonical base64url only** for v2: `A–Z a–z 0–9 - _`, no padding, no
+  whitespace. (v1 additionally tolerates padded standard base64, for links
+  already in circulation.)
+- **Encoder-side budget rules**, not decode rules: label ≤ 64 bytes
+  (`MAX_LABEL_BYTES`), chainId ≤ 8 bytes, amount ≤ 32 bytes (a `uint256`).
+
+**Version dispatch is the first decoded byte.** `0x7B` is `{`, so it is v1
+JSON; `0x02` is v2. Markers `0x01`–`0x1F` are reserved for future binary
+versions — none of them can begin UTF-8 JSON, so the two encodings can never be
+confused. Any other first byte is rejected as an unrecognized format. A
+fragment longer than `MAX_FRAGMENT_CHARS` (16384) is rejected before any base64
+decoding happens.
+
+`src/__tests__/payload-v2-vectors.ts` holds six frozen vectors covering all
+three base64 length remainders, an empty label, a multi-byte UTF-8 label, a
+full `uint256` amount, an amount with an interior zero byte, and a repeated
+recipient. **Check a new implementation against those**, and against the two
+larger frozen fixtures in `payload.test.ts` and `payload-v2.test.ts`.
 
 ## Supported chains
 

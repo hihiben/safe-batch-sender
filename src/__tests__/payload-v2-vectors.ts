@@ -9,7 +9,11 @@
 // with an interior zero byte, and a repeated recipient.
 //
 // The accounts are synthetic — the first 20 bytes of keccak256 over a fixed string — so
-// nothing here points at a real Safe or a real recipient.
+// nothing here points at a real Safe or a real recipient. The strings are written down
+// so anyone can recompute them rather than take this comment's word for it:
+//   SAFE  keccak256('safe-batch-sender/example-safe')
+//   A1    keccak256('safe-batch-sender/example-recipient-1')
+//   A2    keccak256('safe-batch-sender/example-recipient-2')
 import type { BatchInput, BatchPayload } from '../payload.js'
 
 const SAFE = '0x3432931ca9f58f3943cE806039c799F0613871BD'
