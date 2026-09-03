@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs'
 import { encodePayload, encodePayloadV2, normalizeAddress } from '../src/payload.ts'
 import { CHAINS } from '../src/chains.ts'
 
-const APP_HOST = 'https://hihiben.github.io/safe-batch-sender/'
+const APP_HOST = 'https://dinngo.github.io/safe-batch-sender/'
 
 // A link is only useful if whatever carries it will accept the whole string. Chat
 // platforms commonly cap a button's URL at 3000 characters, which is tighter than

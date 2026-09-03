@@ -14,7 +14,7 @@ can drive it.
    https://app.safe.global/apps/open?safe=<shortName>:<safeAddress>&appUrl=<urlencoded appUrl>
    ```
 
-   where `appUrl` is `https://hihiben.github.io/safe-batch-sender/#<payload>` and
+   where `appUrl` is `https://dinngo.github.io/safe-batch-sender/#<payload>` and
    `<payload>` is base64url-encoded JSON in the URL **fragment** (not a query
    param on *this* URL — GitHub Pages never sees it, and Safe's manifest loader
    keeps the full fragment on the iframe's `src` even though it strips it
@@ -292,7 +292,7 @@ decodes its output back, so an incompatible Node version fails loudly via
 Pushing to `main` builds and deploys to GitHub Pages via
 `.github/workflows/deploy.yml` (`configure-pages` with `enablement: true`, so
 this also turns Pages on for the repo on first run). The deployed app lives at
-`https://hihiben.github.io/safe-batch-sender/` — this exact URL is baked in as
+`https://dinngo.github.io/safe-batch-sender/` — this exact URL is baked in as
 `APP_HOST` in `tools/make-link.mjs`, and in whatever else generates links. Moving
 the static site to a new host means updating every generator **and** invalidating
 every link already handed out, because each one carries the old origin — put a
@@ -309,7 +309,7 @@ domain you control in front of the host before you need to move.
   `insertAdjacentHTML`/`document.write`/`eval(`/`new Function(` as a
   regression gate.
 - Recipient addresses and amounts appear in the URL, and reach more places
-  than "just this app". The fragment in `https://hihiben.github.io/…/#payload`
+  than "just this app". The fragment in `https://dinngo.github.io/…/#payload`
   is never sent to any server — that part is true, fragments aren't part of an
   HTTP request. But **the deep link an operator actually clicks is not that
   URL**: it's `https://app.safe.global/apps/open?safe=…&appUrl=<percent-encoded

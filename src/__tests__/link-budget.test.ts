@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_TXS, encodePayload, encodePayloadV2, type BatchInput, type WirePayload } from '../payload.js'
 
-const HOST = 'https://hihiben.github.io/safe-batch-sender/'
+const HOST = 'https://dinngo.github.io/safe-batch-sender/'
 const SAFE = '0x3432931ca9f58f3943cE806039c799F0613871BD'
 
 function addressAt(i: number): string {
