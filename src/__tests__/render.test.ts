@@ -5,8 +5,8 @@ import type { PreparedRow } from '../prepare.js'
 import { renderErrors, renderLoading, renderNoPayload, renderPreview, renderProposeError, renderProposeSuccess } from '../render.js'
 
 const ROWS: PreparedRow[] = [
-  { to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' },
-  { to: '0x8d10551fbB0dA1eaDF34B25210fE75F278fa9321', amountWei: '1000000000000000' },
+  { to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '500000000000000' },
+  { to: '0x0FEb17f6998038CEfBE15260dd246a73Ae7544Ad', amountWei: '1000000000000000' },
 ]
 
 function baseOpts(overrides: Partial<Parameters<typeof renderPreview>[1]> = {}) {

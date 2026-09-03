@@ -3,8 +3,8 @@ import { MAX_FRAGMENT_CHARS, MAX_TXS, decodePayload, encodePayloadV2, type Batch
 import { prepare } from '../prepare.js'
 import { GOLDEN_VECTORS } from './payload-v2-vectors.js'
 
-const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
-const A1 = '0x9572561eBe198566bBa3B4e7C53F82Ac27587431'
+const SAFE = '0x3432931ca9f58f3943cE806039c799F0613871BD'
+const A1 = '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14'
 
 function base64UrlDecodeForTest(input: string): Uint8Array {
   const normalized = input.replace(/-/g, '+').replace(/_/g, '/')
@@ -108,8 +108,15 @@ describe.each(GOLDEN_VECTORS)('golden vector $name', (vector) => {
 
 describe('v2 base64url canonical form', () => {
   it('rejects a v2 fragment that carries standard-base64 characters or padding', () => {
-    const padded = VECTOR_A.fragment.replace(/-/g, '+').replace(/_/g, '/')
+    // Needs a vector whose base64url actually contains - and _, otherwise the rewrite
+    // below is a no-op and this test passes without exercising anything. Assert that
+    // rather than trusting whichever vector happens to be first.
+    const vector = GOLDEN_VECTORS.find((v) => v.fragment.includes('-') && v.fragment.includes('_'))
+    if (!vector) throw new Error('no golden vector uses the base64url-specific alphabet')
+    const padded = vector.fragment.replace(/-/g, '+').replace(/_/g, '/')
+    expect(padded).not.toBe(vector.fragment)
     const withPadding = padded + '='.repeat((4 - (padded.length % 4)) % 4)
+    expect(withPadding).not.toBe(vector.fragment)
     const result = decodePayload(withPadding)
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected error')
@@ -214,7 +221,7 @@ describe('encodePayloadV2 rejects invalid input', () => {
   })
 
   it('rejects a mixed-case address that fails EIP-55 checksum', () => {
-    const badChecksum = '0x9572561EBe198566bBa3B4e7C53F82Ac27587431'
+    const badChecksum = '0x2701232AB142dfF035245dBcaA08e316Bf5d1B14'
     expect(() => encodePayloadV2({ ...validBase, safe: badChecksum })).toThrow()
   })
 })
@@ -435,7 +442,7 @@ describe('prepare() after v2 decode', () => {
 // 30 rows | 27-byte label | amount widths: 12 x 7 bytes, 18 x 8 bytes | chainId 8453
 const PROD_FIXTURE_INPUT: BatchInput = {
   chainId: '8453',
-  safe: SAFE,
+  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
   label: 'uniswapx gas top-up on base',
   // Lowercase, exactly as buildBatchLink emits them. v2 carries addresses as raw bytes,
   // so case never reaches the wire; the decoded expectation below is checksummed.
@@ -479,7 +486,7 @@ const PROD_FIXTURE_FRAGMENT =
 const PROD_FIXTURE_DECODED = {
   v: 2 as const,
   chainId: '8453',
-  safe: SAFE,
+  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
   label: 'uniswapx gas top-up on base',
   txs: [
     { to: '0x32226AdBF9F00eb2A83fE221C0Cc4E350Ec16b76', amountWei: '78239333300000000' },

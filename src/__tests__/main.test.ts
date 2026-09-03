@@ -13,9 +13,9 @@ vi.mock('../safe.js', () => safeMocks)
 import { renderPreview } from '../render.js'
 import { handlePropose, run } from '../main.js'
 
-// Ben's real fixture, robinhood chain, 1 tx of 0.0005 ETH.
+// A v1 fragment: robinhood chain, one 0.0005 transfer.
 const VALID_FRAGMENT =
-  'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweEVlRmE2MjIxMDliNUU5N0I5ODIyMDcyOUZhMzVmQzAzN0I3QjMyMTIiLCJsYWJlbCI6IiIsInR4cyI6W1siMHg5NTcyNTYxZUJlMTk4NTY2YkJhM0I0ZTdDNTNGODJBYzI3NTg3NDMxIiwiNTAwMDAwMDAwMDAwMDAwIl1dfQ'
+  'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweDM0MzI5MzFjYTlmNThmMzk0M2NFODA2MDM5Yzc5OUYwNjEzODcxQkQiLCJsYWJlbCI6IiIsInR4cyI6W1siMHgyNzAxMjMyYWIxNDJkZkYwMzUyNDVkQmNhQTA4ZTMxNkJmNWQxQjE0IiwiNTAwMDAwMDAwMDAwMDAwIl1dfQ'
 
 function setHash(hash: string): void {
   window.location.hash = hash
@@ -79,7 +79,7 @@ describe('run()', () => {
     safeMocks.isInIframe.mockReturnValue(true)
     safeMocks.getSafeContext.mockResolvedValue({
       chainId: '4663',
-      safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+      safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
       nativeSymbol: 'ETH',
       nativeDecimals: 18,
     })
@@ -93,7 +93,7 @@ describe('run()', () => {
     safeMocks.isInIframe.mockReturnValue(true)
     safeMocks.getSafeContext.mockResolvedValue({
       chainId: '4663',
-      safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'.toLowerCase(),
+      safe: '0x3432931ca9f58f3943cE806039c799F0613871BD'.toLowerCase(),
       nativeSymbol: 'ETH',
       nativeDecimals: 18,
     })
@@ -116,7 +116,7 @@ describe('handlePropose (S5: retry after a rejected/failed propose)', () => {
   it('a failed propose leaves the preview and button retryable, and a retry can succeed', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
-    const row = { to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '1' }
+    const row = { to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '1' }
     const handle = renderPreview(container, {
       label: '',
       rows: [row],
@@ -147,7 +147,7 @@ describe('handlePropose (S5: retry after a rejected/failed propose)', () => {
 
   it('disables the button and shows a waiting label while the propose is in flight', async () => {
     const container = document.createElement('div')
-    const row = { to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '1' }
+    const row = { to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '1' }
     const handle = renderPreview(container, {
       label: '',
       rows: [row],

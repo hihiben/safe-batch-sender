@@ -6,12 +6,15 @@
 // for byte, by a separate implementation written from that specification alone. They are
 // deliberately small and varied rather than realistic: between them they cover all three
 // base64 length remainders, a multi-byte UTF-8 label, a full uint256 amount, an amount
-// with an interior zero byte, and a repeated recipient."
+// with an interior zero byte, and a repeated recipient.
+//
+// The accounts are synthetic — the first 20 bytes of keccak256 over a fixed string — so
+// nothing here points at a real Safe or a real recipient.
 import type { BatchInput, BatchPayload } from '../payload.js'
 
-const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
-const A1 = '0x9572561eBe198566bBa3B4e7C53F82Ac27587431'
-const A2 = '0x5F8D74fCFE0B42a3a4d5646c0f5d9124059817a2'
+const SAFE = '0x3432931ca9f58f3943cE806039c799F0613871BD'
+const A1 = '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14'
+const A2 = '0x0FEb17f6998038CEfBE15260dd246a73Ae7544Ad'
 
 export interface GoldenVector {
   name: string
@@ -27,17 +30,19 @@ export const GOLDEN_VECTORS: GoldenVector[] = [
     input: {
       chainId: '4663',
       safe: SAFE,
-      label: '',
+      label: "",
       txs: [[A1, '500000000000000']],
     },
-    hex: '02021237eefa622109b5e97b98220729fa35fc037b7b321200019572561ebe198566bba3b4e7c53f82ac275874310701c6bf52634000',
-    fragment: 'AgISN-76YiEJtel7mCIHKfo1_AN7ezISAAGVclYevhmFZrujtOfFP4KsJ1h0MQcBxr9SY0AA',
+    hex: '020212373432931ca9f58f3943ce806039c799f0613871bd00012701232ab142dff035245dbcaa08e316bf5d1b140701c6bf52634000',
+    fragment: 'AgISNzQykxyp9Y85Q86AYDnHmfBhOHG9AAEnASMqsULf8DUkXbyqCOMWv10bFAcBxr9SY0AA',
     decoded: {
       v: 2,
       chainId: '4663',
       safe: SAFE,
-      label: '',
-      txs: [{ to: A1, amountWei: '500000000000000' }],
+      label: "",
+      txs: [
+        { to: A1, amountWei: '500000000000000' },
+      ],
     },
   },
   {
@@ -45,20 +50,17 @@ export const GOLDEN_VECTORS: GoldenVector[] = [
     input: {
       chainId: '4663',
       safe: SAFE,
-      label: 'gas refill test',
-      txs: [
-        [A1, '500000000000000'],
-        [A2, '500000000000000'],
-      ],
+      label: "sample batch v2",
+      txs: [[A1, '500000000000000'], [A2, '500000000000000']],
     },
-    hex: '02021237eefa622109b5e97b98220729fa35fc037b7b32120f67617320726566696c6c2074657374029572561ebe198566bba3b4e7c53f82ac275874310701c6bf526340005f8d74fcfe0b42a3a4d5646c0f5d9124059817a20701c6bf52634000',
+    hex: '020212373432931ca9f58f3943ce806039c799f0613871bd0f73616d706c65206261746368207632022701232ab142dff035245dbcaa08e316bf5d1b140701c6bf526340000feb17f6998038cefbe15260dd246a73ae7544ad0701c6bf52634000',
     fragment:
-      'AgISN-76YiEJtel7mCIHKfo1_AN7ezISD2dhcyByZWZpbGwgdGVzdAKVclYevhmFZrujtOfFP4KsJ1h0MQcBxr9SY0AAX410_P4LQqOk1WRsD12RJAWYF6IHAca_UmNAAA',
+      'AgISNzQykxyp9Y85Q86AYDnHmfBhOHG9D3NhbXBsZSBiYXRjaCB2MgInASMqsULf8DUkXbyqCOMWv10bFAcBxr9SY0AAD-sX9pmAOM774VJg3SRqc651RK0HAca_UmNAAA',
     decoded: {
       v: 2,
       chainId: '4663',
       safe: SAFE,
-      label: 'gas refill test',
+      label: "sample batch v2",
       txs: [
         { to: A1, amountWei: '500000000000000' },
         { to: A2, amountWei: '500000000000000' },
@@ -66,21 +68,24 @@ export const GOLDEN_VECTORS: GoldenVector[] = [
     },
   },
   {
-    name: 'C — 66 bytes (mod 3 = 0), UTF-8 label',
+    name: 'C — 77 bytes (mod 3 = 2), UTF-8 label',
     input: {
-      chainId: '42161',
+      chainId: '1',
       safe: SAFE,
-      label: '補 gas 給 filler',
-      txs: [[A1, '1']],
+      label: "多位元組標籤 🔥",
+      txs: [[A1, '1000000000000000000']],
     },
-    hex: '0202a4b1eefa622109b5e97b98220729fa35fc037b7b321212e8a39c2067617320e7b5a62066696c6c6572019572561ebe198566bba3b4e7c53f82ac275874310101',
-    fragment: 'AgKkse76YiEJtel7mCIHKfo1_AN7ezISEuijnCBnYXMg57WmIGZpbGxlcgGVclYevhmFZrujtOfFP4KsJ1h0MQEB',
+    hex: '0201013432931ca9f58f3943ce806039c799f0613871bd17e5a49ae4bd8de58583e7b584e6a899e7b1a420f09f94a5012701232ab142dff035245dbcaa08e316bf5d1b14080de0b6b3a7640000',
+    fragment:
+      'AgEBNDKTHKn1jzlDzoBgOceZ8GE4cb0X5aSa5L2N5YWD57WE5qiZ57GkIPCflKUBJwEjKrFC3_A1JF28qgjjFr9dGxQIDeC2s6dkAAA',
     decoded: {
       v: 2,
-      chainId: '42161',
+      chainId: '1',
       safe: SAFE,
-      label: '補 gas 給 filler',
-      txs: [{ to: A1, amountWei: '1' }],
+      label: "多位元組標籤 🔥",
+      txs: [
+        { to: A1, amountWei: '1000000000000000000' },
+      ],
     },
   },
   {
@@ -88,17 +93,20 @@ export const GOLDEN_VECTORS: GoldenVector[] = [
     input: {
       chainId: '1',
       safe: SAFE,
-      label: 'max',
-      txs: [[A1, (2n ** 256n - 1n).toString()]],
+      label: "max",
+      txs: [[A1, '115792089237316195423570985008687907853269984665640564039457584007913129639935']],
     },
-    hex: '020101eefa622109b5e97b98220729fa35fc037b7b3212036d6178019572561ebe198566bba3b4e7c53f82ac2758743120ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-    fragment: 'AgEB7vpiIQm16XuYIgcp-jX8A3t7MhIDbWF4AZVyVh6-GYVmu6O058U_gqwnWHQxIP__________________________________________',
+    hex: '0201013432931ca9f58f3943ce806039c799f0613871bd036d6178012701232ab142dff035245dbcaa08e316bf5d1b1420ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    fragment:
+      'AgEBNDKTHKn1jzlDzoBgOceZ8GE4cb0DbWF4AScBIyqxQt_wNSRdvKoI4xa_XRsUIP__________________________________________',
     decoded: {
       v: 2,
       chainId: '1',
       safe: SAFE,
-      label: 'max',
-      txs: [{ to: A1, amountWei: (2n ** 256n - 1n).toString() }],
+      label: "max",
+      txs: [
+        { to: A1, amountWei: '115792089237316195423570985008687907853269984665640564039457584007913129639935' },
+      ],
     },
   },
   {
@@ -106,19 +114,16 @@ export const GOLDEN_VECTORS: GoldenVector[] = [
     input: {
       chainId: '56',
       safe: SAFE,
-      label: 'b',
-      txs: [
-        [A1, '255'],
-        [A2, '256'],
-      ],
+      label: "b",
+      txs: [[A1, '255'], [A2, '256']],
     },
-    hex: '020138eefa622109b5e97b98220729fa35fc037b7b32120162029572561ebe198566bba3b4e7c53f82ac2758743101ff5f8d74fcfe0b42a3a4d5646c0f5d9124059817a2020100',
-    fragment: 'AgE47vpiIQm16XuYIgcp-jX8A3t7MhIBYgKVclYevhmFZrujtOfFP4KsJ1h0MQH_X410_P4LQqOk1WRsD12RJAWYF6ICAQA',
+    hex: '0201383432931ca9f58f3943ce806039c799f0613871bd0162022701232ab142dff035245dbcaa08e316bf5d1b1401ff0feb17f6998038cefbe15260dd246a73ae7544ad020100',
+    fragment: 'AgE4NDKTHKn1jzlDzoBgOceZ8GE4cb0BYgInASMqsULf8DUkXbyqCOMWv10bFAH_D-sX9pmAOM774VJg3SRqc651RK0CAQA',
     decoded: {
       v: 2,
       chainId: '56',
       safe: SAFE,
-      label: 'b',
+      label: "b",
       txs: [
         { to: A1, amountWei: '255' },
         { to: A2, amountWei: '256' },
@@ -130,21 +135,17 @@ export const GOLDEN_VECTORS: GoldenVector[] = [
     input: {
       chainId: '8453',
       safe: SAFE,
-      label: 'uniswapx gas top-up on base',
-      txs: [
-        [A1, '12345678000000000'],
-        [A2, '9876543210000000'],
-        [A1, '1000000000000000000'],
-      ],
+      label: "batch transfer sample label",
+      txs: [[A1, '12345678000000000'], [A2, '9876543210000000'], [A1, '1000000000000000000']],
     },
-    hex: '02022105eefa622109b5e97b98220729fa35fc037b7b32121b756e6973776170782067617320746f702d7570206f6e2062617365039572561ebe198566bba3b4e7c53f82ac27587431072bdc5427b38c005f8d74fcfe0b42a3a4d5646c0f5d9124059817a2072316a9e9a40e809572561ebe198566bba3b4e7c53f82ac27587431080de0b6b3a7640000',
+    hex: '020221053432931ca9f58f3943ce806039c799f0613871bd1b6261746368207472616e736665722073616d706c65206c6162656c032701232ab142dff035245dbcaa08e316bf5d1b14072bdc5427b38c000feb17f6998038cefbe15260dd246a73ae7544ad072316a9e9a40e802701232ab142dff035245dbcaa08e316bf5d1b14080de0b6b3a7640000',
     fragment:
-      'AgIhBe76YiEJtel7mCIHKfo1_AN7ezISG3VuaXN3YXB4IGdhcyB0b3AtdXAgb24gYmFzZQOVclYevhmFZrujtOfFP4KsJ1h0MQcr3FQns4wAX410_P4LQqOk1WRsD12RJAWYF6IHIxap6aQOgJVyVh6-GYVmu6O058U_gqwnWHQxCA3gtrOnZAAA',
+      'AgIhBTQykxyp9Y85Q86AYDnHmfBhOHG9G2JhdGNoIHRyYW5zZmVyIHNhbXBsZSBsYWJlbAMnASMqsULf8DUkXbyqCOMWv10bFAcr3FQns4wAD-sX9pmAOM774VJg3SRqc651RK0HIxap6aQOgCcBIyqxQt_wNSRdvKoI4xa_XRsUCA3gtrOnZAAA',
     decoded: {
       v: 2,
       chainId: '8453',
       safe: SAFE,
-      label: 'uniswapx gas top-up on base',
+      label: "batch transfer sample label",
       txs: [
         { to: A1, amountWei: '12345678000000000' },
         { to: A2, amountWei: '9876543210000000' },

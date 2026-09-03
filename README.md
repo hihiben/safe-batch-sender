@@ -42,9 +42,9 @@ no live Safe to validate against outside the iframe.
 {
   "v": 1,
   "chainId": "4663",
-  "safe": "0xEeFa622109b5E97B98220729Fa35fC037B7B3212",
+  "safe": "0x3432931ca9f58f3943cE806039c799F0613871BD",
   "label": "",
-  "txs": [["0x9572561eBe198566bBa3B4e7C53F82Ac27587431", "500000000000000"]]
+  "txs": [["0x2701232ab142dfF035245dBcaA08e316Bf5d1B14", "500000000000000"]]
 }
 ```
 

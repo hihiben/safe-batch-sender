@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_TXS, decodePayload, encodePayload } from '../payload.js'
 
-const BEN_FIXTURE_FRAGMENT =
-  'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweEVlRmE2MjIxMDliNUU5N0I5ODIyMDcyOUZhMzVmQzAzN0I3QjMyMTIiLCJsYWJlbCI6IiIsInR4cyI6W1siMHg5NTcyNTYxZUJlMTk4NTY2YkJhM0I0ZTdDNTNGODJBYzI3NTg3NDMxIiwiNTAwMDAwMDAwMDAwMDAwIl1dfQ'
+const SAMPLE_FRAGMENT =
+  'eyJ2IjoxLCJjaGFpbklkIjoiNDY2MyIsInNhZmUiOiIweDM0MzI5MzFjYTlmNThmMzk0M2NFODA2MDM5Yzc5OUYwNjEzODcxQkQiLCJsYWJlbCI6IiIsInR4cyI6W1siMHgyNzAxMjMyYWIxNDJkZkYwMzUyNDVkQmNhQTA4ZTMxNkJmNWQxQjE0IiwiNTAwMDAwMDAwMDAwMDAwIl1dfQ'
 
-const BEN_FIXTURE_DECODED = {
+const SAMPLE_DECODED = {
   v: 1,
   chainId: '4663',
-  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+  safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
   label: '',
-  txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
+  txs: [{ to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '500000000000000' }],
 }
 
 // A frozen v1 fragment, produced by a second implementation of this encoder written in
@@ -40,11 +40,11 @@ function jsonToFragment(json: unknown): string {
 }
 
 describe('decodePayload', () => {
-  it("decodes Ben's real fixture (no base64 padding)", () => {
-    const result = decodePayload(BEN_FIXTURE_FRAGMENT)
+  it('decodes a v1 fragment with no base64 padding', () => {
+    const result = decodePayload(SAMPLE_FRAGMENT)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value).toEqual(BEN_FIXTURE_DECODED)
+    expect(result.value).toEqual(SAMPLE_DECODED)
   })
 
   it('decodes a fragment produced by an independent implementation', () => {
@@ -66,21 +66,21 @@ describe('decodePayload', () => {
   })
 
   it('decodes the same payload when it carries base64 padding', () => {
-    const padded = BEN_FIXTURE_FRAGMENT.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = SAMPLE_FRAGMENT.replace(/-/g, '+').replace(/_/g, '/')
     const withPadding = padded + '='.repeat((4 - (padded.length % 4)) % 4)
     const result = decodePayload(withPadding)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value).toEqual(BEN_FIXTURE_DECODED)
+    expect(result.value).toEqual(SAMPLE_DECODED)
   })
 
   it('accepts a leading "#" as produced by location.hash', () => {
-    const result = decodePayload(`#${BEN_FIXTURE_FRAGMENT}`)
+    const result = decodePayload(`#${SAMPLE_FRAGMENT}`)
     expect(result.ok).toBe(true)
   })
 
   it('rejects an unsupported version', () => {
-    const fragment = jsonToFragment({ ...BEN_FIXTURE_DECODED, v: 2, txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1']] })
+    const fragment = jsonToFragment({ ...SAMPLE_DECODED, v: 2, txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '1']] })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected error')
@@ -88,7 +88,7 @@ describe('decodePayload', () => {
   })
 
   it('rejects an empty txs array', () => {
-    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', label: '', txs: [] })
+    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', label: '', txs: [] })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected error')
@@ -99,9 +99,9 @@ describe('decodePayload', () => {
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
-      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amount]],
+      txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amount]],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(false)
@@ -110,41 +110,41 @@ describe('decodePayload', () => {
   })
 
   it('normalizes an all-lowercase address to its checksum', () => {
-    const lower = '0x9572561eBe198566bBa3B4e7C53F82Ac27587431'.toLowerCase()
+    const lower = '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14'.toLowerCase()
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
       txs: [[lower, '1']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value.txs[0]?.to).toBe('0x9572561eBe198566bBa3B4e7C53F82Ac27587431')
+    expect(result.value.txs[0]?.to).toBe('0x2701232ab142dfF035245dBcaA08e316Bf5d1B14')
   })
 
   it('normalizes an all-uppercase address to its checksum', () => {
-    const upper = '0x' + '9572561eBe198566bBa3B4e7C53F82Ac27587431'.toUpperCase()
+    const upper = '0x' + '2701232ab142dfF035245dBcaA08e316Bf5d1B14'.toUpperCase()
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
       txs: [[upper, '1']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value.txs[0]?.to).toBe('0x9572561eBe198566bBa3B4e7C53F82Ac27587431')
+    expect(result.value.txs[0]?.to).toBe('0x2701232ab142dfF035245dBcaA08e316Bf5d1B14')
   })
 
   it('rejects a mixed-case address that fails EIP-55 checksum', () => {
-    const badChecksum = '0x9572561EBe198566bBa3B4e7C53F82Ac27587431'
+    const badChecksum = '0x2701232AB142dfF035245dBcaA08e316Bf5d1B14'
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
       txs: [[badChecksum, '1']],
     })
@@ -158,7 +158,7 @@ describe('decodePayload', () => {
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
       txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac2758743', '1']],
     })
@@ -172,9 +172,9 @@ describe('decodePayload', () => {
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '批次轉帳 🔥',
-      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1']],
+      txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '1']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(true)
@@ -186,9 +186,9 @@ describe('decodePayload', () => {
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
-      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1', '0x6B175474E89094C44Da98b954EedeAC495271d0F']],
+      txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '1', '0x6B175474E89094C44Da98b954EedeAC495271d0F']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(false)
@@ -200,9 +200,9 @@ describe('decodePayload', () => {
     const fragment = jsonToFragment({
       v: 1,
       chainId: '1',
-      safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431',
+      safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14',
       label: '',
-      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1', 'not-an-address']],
+      txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '1', 'not-an-address']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(false)
@@ -211,8 +211,8 @@ describe('decodePayload', () => {
   })
 
   it('rejects more than MAX_TXS entries', () => {
-    const tooMany = Array.from({ length: MAX_TXS + 1 }, () => ['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1'])
-    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', label: '', txs: tooMany })
+    const tooMany = Array.from({ length: MAX_TXS + 1 }, () => ['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '1'])
+    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', label: '', txs: tooMany })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected error')
@@ -220,8 +220,8 @@ describe('decodePayload', () => {
   })
 
   it('accepts exactly MAX_TXS entries', () => {
-    const exactly = Array.from({ length: MAX_TXS }, () => ['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '1'])
-    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', label: '', txs: exactly })
+    const exactly = Array.from({ length: MAX_TXS }, () => ['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '1'])
+    const fragment = jsonToFragment({ v: 1, chainId: '1', safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', label: '', txs: exactly })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(true)
   })
@@ -242,24 +242,24 @@ describe('encodePayload', () => {
     const fragment = encodePayload({
       v: 1,
       chainId: '4663',
-      safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+      safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
       label: '',
-      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '500000000000000']],
+      txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '500000000000000']],
     })
     const result = decodePayload(fragment)
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected ok')
-    expect(result.value).toEqual(BEN_FIXTURE_DECODED)
+    expect(result.value).toEqual(SAMPLE_DECODED)
   })
 
   it('emits base64url without padding, as the wire format requires', () => {
     const fragment = encodePayload({
       v: 1,
       chainId: '4663',
-      safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+      safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
       label: '',
-      txs: [['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '500000000000000']],
+      txs: [['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '500000000000000']],
     })
-    expect(fragment).toBe(BEN_FIXTURE_FRAGMENT)
+    expect(fragment).toBe(SAMPLE_FRAGMENT)
   })
 })

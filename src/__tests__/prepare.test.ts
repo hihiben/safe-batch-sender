@@ -5,15 +5,15 @@ import { prepare } from '../prepare.js'
 const BASE_PAYLOAD: BatchPayload = {
   v: 1,
   chainId: '4663',
-  safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212',
+  safe: '0x3432931ca9f58f3943cE806039c799F0613871BD',
   label: 'test batch',
   txs: [
-    { to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' },
-    { to: '0x8d10551fbB0dA1eaDF34B25210fE75F278fa9321', amountWei: '1000000000000000' },
+    { to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '500000000000000' },
+    { to: '0x0FEb17f6998038CEfBE15260dd246a73Ae7544Ad', amountWei: '1000000000000000' },
   ],
 }
 
-const MATCHING_CTX = { chainId: '4663', safe: '0xEeFa622109b5E97B98220729Fa35fC037B7B3212' }
+const MATCHING_CTX = { chainId: '4663', safe: '0x3432931ca9f58f3943cE806039c799F0613871BD' }
 
 describe('prepare', () => {
   it('produces rows and txs from the same source data', () => {
@@ -57,7 +57,7 @@ describe('prepare', () => {
   })
 
   it('rejects when the Safe context address does not match the payload', () => {
-    const result = prepare(BASE_PAYLOAD, { chainId: '4663', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431' })
+    const result = prepare(BASE_PAYLOAD, { chainId: '4663', safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14' })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected mismatch')
     expect(result.errors.some((e) => e.field === 'safe')).toBe(true)
@@ -69,7 +69,7 @@ describe('prepare', () => {
   })
 
   it('can report both chainId and safe mismatches at once', () => {
-    const result = prepare(BASE_PAYLOAD, { chainId: '1', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431' })
+    const result = prepare(BASE_PAYLOAD, { chainId: '1', safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14' })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected mismatch')
     expect(result.errors).toHaveLength(2)

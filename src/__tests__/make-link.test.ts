@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { decodePayload } from '../payload.js'
 
-const A1 = '0x9572561eBe198566bBa3B4e7C53F82Ac27587431'
+const A1 = '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14'
 // --safe has no default: the CLI is generic, so the caller always names the Safe.
-const SAFE = '0xEeFa622109b5E97B98220729Fa35fC037B7B3212'
+const SAFE = '0x3432931ca9f58f3943cE806039c799F0613871BD'
 
 // tools/make-link.mjs does `import '../src/payload.ts'` directly, relying on Node's
 // native TypeScript type-stripping (stable by default from Node 23.6+; Node 22 needs
@@ -30,7 +30,7 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
   it('produces a link this app decodes back to the same payload it was given', () => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')
-    writeFileSync(rowsPath, JSON.stringify([['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '500000000000000']]))
+    writeFileSync(rowsPath, JSON.stringify([['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '500000000000000']]))
 
     const output = execFileSync(
       process.execPath,
@@ -52,14 +52,14 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
       chainId: '4663',
       safe: SAFE,
       label: 'ci smoke test',
-      txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
+      txs: [{ to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '500000000000000' }],
     })
   })
 
   it('produces a v2 link when --format v2 is passed, decoding back to the same payload', () => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')
-    writeFileSync(rowsPath, JSON.stringify([['0x9572561eBe198566bBa3B4e7C53F82Ac27587431', '500000000000000']]))
+    writeFileSync(rowsPath, JSON.stringify([['0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', '500000000000000']]))
 
     const output = execFileSync(
       process.execPath,
@@ -79,12 +79,12 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
       chainId: '4663',
       safe: SAFE,
       label: 'ci smoke test',
-      txs: [{ to: '0x9572561eBe198566bBa3B4e7C53F82Ac27587431', amountWei: '500000000000000' }],
+      txs: [{ to: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B14', amountWei: '500000000000000' }],
     })
   })
 
   it('rejects a runtime 3-tuple as unsupported ERC-20 input', () => {
-    const result = runWithRows([["0x9572561eBe198566bBa3B4e7C53F82Ac27587431", '5000000000000000000', '0x6B175474E89094C44Da98b954EedeAC495271d0F']])
+    const result = runWithRows([["0x2701232ab142dfF035245dBcaA08e316Bf5d1B14", '5000000000000000000', '0x6B175474E89094C44Da98b954EedeAC495271d0F']])
     expect(result.status).not.toBe(0)
     expect(result.stderr).toMatch(/ERC-20 tokens are not supported yet.*remove the third \(token address\) element/i)
     expect(result.stdout).toBe('')
@@ -106,8 +106,8 @@ describe('tools/make-link.mjs (Node compatibility smoke test)', () => {
   // format would print a link built around a placeholder and fail only in the app.
   it.each([
     { name: 'a placeholder', safe: '0xYourSafe...' },
-    { name: 'a bad EIP-55 checksum', safe: '0xEEFa622109b5E97B98220729Fa35fC037B7B3212' },
-    { name: 'a too-short address', safe: '0x9572561eBe198566bBa3B4e7C53F82Ac2758743' },
+    { name: 'a bad EIP-55 checksum', safe: '0x2701232AB142dfF035245dBcaA08e316Bf5d1B14' },
+    { name: 'a too-short address', safe: '0x2701232ab142dfF035245dBcaA08e316Bf5d1B1' },
   ])('rejects $name passed to --safe, on the default (v1) format', ({ safe }) => {
     const dir = mkdtempSync(join(tmpdir(), 'make-link-test-'))
     const rowsPath = join(dir, 'rows.json')
